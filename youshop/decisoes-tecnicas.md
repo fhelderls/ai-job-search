@@ -20,9 +20,9 @@ Por quê: o desafio pede um protótipo funcional em poucos dias. Esse desenho te
 - Crescimento necessário = quanto o volume precisa subir na nova comissão para igualar o lucro de hoje.
 - Por quê: dinheiro exige resultado exato e repetível. Um LLM pode errar conta ou dar respostas diferentes para a mesma entrada. É a mesma regra que usei no PetCore: regras primeiro, IA só onde linguagem natural ajuda.
 
-**3.2 A IA só explica, mas entrega uma decisão**
-- A regra calcula tudo e envia à IA os números, o veredito (`compensa` 1 ou 0), a melhor alternativa entre as comissões testadas e se cada venda dá prejuízo. A IA escreve três partes: **Recomendação**, **Risco** (e se a aposta de vendas não vier) e **Teste** (como validar em 30 dias ou com parte dos vendedores, com um critério de parada).
-- Por quê: a primeira versão só repetia os números que a tela já mostrava, então não agregava nada. O valor da IA aqui é traduzir números em decisão e em plano de teste para quem não é de finanças, não calcular.
+**3.2 A IA só explica, mas entrega um plano**
+- A regra calcula tudo e envia à IA os números, o veredito (`compensa` 1 ou 0), a melhor alternativa entre as comissões testadas, os limites de preço, frete, anúncio e desconto, e a lista de produtos com a situação de cada um. A IA escreve as partes **Recomendação**, **Risco**, **Teste** (30 dias, com critério de parada), **Preço e promoção**, **Anúncios e frete** e **Catálogo** (as 3 prioridades).
+- Por quê: a primeira versão só repetia os números que a tela já mostrava, então não agregava nada. O valor da IA aqui é traduzir números em decisão e em próximos passos para quem não é de finanças, não calcular.
 
 **3.3 A IA não prevê vendas**
 - O aumento de vendas é uma aposta que o vendedor digita. O sistema mostra o mínimo necessário, mas não afirma que vai acontecer.
@@ -53,11 +53,12 @@ Por quê: o desafio pede um protótipo funcional em poucos dias. Esse desenho te
 - Se a IA não responder (sem crédito, erro, rede), a página mostra uma mensagem e a leitura por regra continua na tela.
 - Por quê: a decisão do usuário não pode depender de um serviço externo.
 
-**3.10 O valor não está no resumo: a regra compara caminhos e a IA decide e escreve**
-- Feedback que recebi ao testar: um relatório que só resume a conta não justifica usar a ferramenta. Passei a calcular, por regra, três caminhos para a mesma mudança: (1) comissão maior em todas as vendas, (2) comissão maior **só sobre as vendas acima do volume de hoje** (comissão escalonada), (3) comissão maior com **aumento de preço** que mantém a margem por unidade. Calcula também a **comissão máxima** que ainda iguala o lucro de hoje com a aposta do vendedor.
-- A IA escolhe um caminho, avalia o risco, propõe um teste de 30 dias com critério de parada e escreve uma **mensagem pronta** para propor a mudança ao parceiro (afiliado, representante ou marketplace).
-- Por quê: o vendedor sozinho não calcula a escalonada nem a comissão máxima, e a mensagem é um material que ele usa de fato na conversa. A escalonada é o caminho que mais reduz o risco: se as vendas não passarem do volume de hoje, nada muda.
-- A mensagem nunca revela lucro, prejuízo ou margem do negócio ao parceiro (regra no prompt e checagem no script).
+**3.10 O valor não está no resumo: da comissão para o painel de margem**
+- Feedback que recebi ao testar: um relatório que só resume a conta não justifica usar a ferramenta. Tentei primeiro uma comissão escalonada e uma mensagem ao parceiro, mas o vendedor não controla a estrutura da comissão (quem define é o marketplace ou o parceiro). Descartei isso e passei às decisões que ele de fato controla: preço, custo, frete, promoção, anúncios e a lista de produtos.
+- A regra calcula e mostra, sem IA: **preço mínimo** e **preço para a margem desejada**; **frete máximo**; **custo máximo por venda em anúncios** e retorno mínimo; se uma **promoção** compensa e o **maior desconto seguro**; como **absorver uma comissão maior** (subir o preço, baixar o custo) e a comissão máxima que ainda iguala o lucro de hoje; e uma **tabela de vários produtos** colados de uma planilha, com a pior margem primeiro.
+- A IA lê tudo isso e entrega um plano: decisão sobre a comissão, o que fazer com preço, promoção, anúncios e frete, e as 3 prioridades do catálogo.
+- Por quê: o vendedor sozinho dificilmente calcula o preço mínimo, o limite de anúncios ou o desconto seguro, e o catálogo mostra de uma vez quais produtos perdem dinheiro.
+- Os nomes dos produtos não vão para a IA: ela recebe só números e um índice (P1, P2...), e a página troca o índice pelo nome. Isso evita que um nome digitado funcione como instrução para o modelo.
 
 ## 4. Como a IA "avalia" (perguntas prováveis)
 
@@ -115,8 +116,9 @@ Duas camadas, uma do produto e uma da IA. Os limites abaixo são propostas minha
 ## 6. Limitações que devo admitir
 - **Modelo linear:** assume preço, custo e custos fixos constantes ao mudar o volume. Na vida real há degraus de custo.
 - **Sem previsão de demanda:** o aumento de vendas é palpite do usuário.
-- **A comissão escalonada depende de o parceiro aceitar.** O simulador mostra o ganho, mas não sabe se o marketplace ou afiliado oferece esse formato. Preciso confirmar isso nas entrevistas.
-- **O caminho do preço não prevê a reação da demanda.** Ele mostra o preço que mantém a margem, mas não quanto as vendas caem se o preço sobe.
+- **Subir o preço não prevê a reação da demanda.** O simulador mostra o preço que mantém a margem, mas não quanto as vendas caem se o preço sobe. O mesmo vale para o desconto: o aumento de vendas esperado é palpite do vendedor.
+- **O custo por venda em anúncios é um valor médio informado pelo usuário.** O simulador não mede campanha nem rastreia vendas por anúncio.
+- **A margem usa só custos variáveis.** Os custos fixos entram no lucro do mês e no equilíbrio, não na margem de cada produto do catálogo.
 - **Uma única linha de produto por simulação.** Vendedor com muitos produtos precisa simular um de cada vez.
 - **Limite de uso fraco:** a contagem por IP fica na memória de cada instância da função e pode ser contornada. Em produção usaria um banco ou serviço de limite de taxa.
 - **Sem dados reais de usuários ainda.** A evidência de mercado vem das entrevistas que estou fazendo.

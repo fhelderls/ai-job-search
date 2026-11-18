@@ -41,59 +41,66 @@ module.exports = async (req, res) => {
   if (typeof corpo === 'string') { try { corpo = JSON.parse(corpo); } catch { corpo = null; } }
   if (!corpo) return res.status(400).json({ erro: 'Corpo inválido.' });
 
-  const entradas = soNumeros(corpo.entradas, ['preco', 'custo', 'frete', 'comissao', 'impostos', 'taxas', 'fixos', 'volume', 'novaComissao', 'crescimento']);
+  const entradas = soNumeros(corpo.entradas, ['preco', 'custo', 'frete', 'comissao', 'impostos', 'taxas', 'fixos', 'volume', 'novaComissao', 'crescimento', 'desconto', 'crescPromo', 'cpa', 'margemAlvo']);
   const atual = soNumeros(corpo.atual, ['margem_un', 'margem_pct', 'markup_pct', 'equilibrio_un', 'lucro_mes', 'queda_maxima_vendas_pct', 'venda_da_prejuizo']);
   const cenario = soNumeros(corpo.cenario, ['nova_comissao_pct', 'crescimento_apostado_pct', 'volume_apostado_un', 'volume_necessario_un', 'margem_un', 'lucro_mes', 'lucro_mes_sem_crescimento', 'variacao_lucro', 'crescimento_minimo_pct', 'melhor_alternativa_pct', 'lucro_melhor_alternativa', 'venda_da_prejuizo', 'compensa']);
   const listaOpcoes = Array.isArray(corpo.opcoes) && corpo.opcoes.length > 0 && corpo.opcoes.length <= 8 ? corpo.opcoes : null;
   const opcoes = listaOpcoes ? listaOpcoes.map((o) => soNumeros(o, ['comissao_pct', 'margem_un', 'equilibrio_un', 'crescimento_minimo_pct', 'lucro_mes_sem_crescimento'])) : null;
   const est = corpo.estrategias && typeof corpo.estrategias === 'object' ? corpo.estrategias : null;
   const estrategias = est ? {
-    escalonada: soNumeros(est.escalonada, ['valida', 'unidades_base', 'lucro_se_aposta_vem', 'lucro_se_nao_vem']),
     subir_tudo: soNumeros(est.subir_tudo, ['lucro_se_aposta_vem', 'lucro_se_nao_vem']),
     preco: soNumeros(est.preco, ['preco_novo', 'aumento_preco_pct']),
+    corte_custo: soNumeros(est.corte_custo, ['custo_novo', 'reducao_custo_pct']),
     comissao_maxima: soNumeros(est.comissao_maxima, ['comissao_maxima_pct']),
   } : null;
-  if (!entradas || !atual || !cenario || !opcoes || opcoes.some((o) => !o) || !estrategias || Object.values(estrategias).some((o) => !o)) return res.status(400).json({ erro: 'Dados inválidos.' });
+  const limites = soNumeros(corpo.limites, ['preco_minimo', 'preco_meta', 'preco_abaixo_do_minimo', 'preco_abaixo_da_meta', 'frete_maximo', 'cpa_maximo', 'roas_equilibrio', 'margem_apos_anuncio_un', 'margem_apos_anuncio_pct', 'anuncio_cabe', 'desconto_margem_un', 'desconto_crescimento_minimo_pct', 'desconto_cabe', 'desconto_maximo_seguro_pct']);
+  const listaCat = Array.isArray(corpo.catalogo) && corpo.catalogo.length <= 15 ? corpo.catalogo : null;
+  const catalogo = listaCat ? listaCat.map((o) => soNumeros(o, ['n', 'margem_un', 'margem_pct', 'preco_meta', 'situacao'])) : null;
+  const catalogoResumo = soNumeros(corpo.catalogo_resumo, ['total', 'abaixo_meta', 'prejuizo']);
+  if (!entradas || !atual || !cenario || !opcoes || opcoes.some((o) => !o) || !estrategias || Object.values(estrategias).some((o) => !o) || !limites || !catalogo || catalogo.some((o) => !o) || !catalogoResumo) return res.status(400).json({ erro: 'Dados inválidos.' });
 
   // O texto do pedido é montado aqui; o cliente só envia números (evita usar o endpoint como chat livre).
-  const dados = JSON.stringify({ entradas, atual, cenario, estrategias, opcoes }, null, 2);
+  const dados = JSON.stringify({ entradas, atual, cenario, estrategias, limites, catalogo, catalogo_resumo: catalogoResumo, opcoes }, null, 2);
   const prompt =
-    'Você é um consultor que ajuda um pequeno vendedor a DECIDIR como mudar a comissão. Ele já vê na tela as tabelas de números, ' +
-    'então NÃO narre nem repita o que a tela mostra: entregue decisão e material pronto. Responda em português simples, em até 14 linhas no total, ' +
-    'sem asteriscos nem markdown, com estas quatro partes, cada uma começando pelo seu nome:\n' +
-    'Recomendação: uma frase coerente com o campo compensa (1 = o cenário compensa se a aposta de vendas se confirmar; 0 = não compensa). ' +
-    'Escolha UM caminho entre os de "estrategias": subir_tudo (comissão maior em todas as vendas), escalonada (comissão maior só sobre as vendas acima de unidades_base; vale só se escalonada.valida for 1) ou preco (comissão maior com aumento de preço para manter a margem por unidade). ' +
-    'Se compensa for 1 e escalonada.valida for 1, recomende propor primeiro a escalonada, porque a comissão maior só incide sobre as vendas extras e o lucro não cai abaixo do de hoje se as vendas se mantiverem; ' +
-    'a comissão em todas as vendas fica como segunda opção, só se o parceiro exigir. Cite comissao_maxima_pct como a comissão mais alta que ainda iguala o lucro de hoje com a aposta dele. ' +
+    'Você é um consultor que ajuda um pequeno vendedor a proteger a margem. Ele já vê na tela as tabelas de números, ' +
+    'então NÃO narre nem repita o que a tela mostra: entregue decisão e próximos passos. Responda em português simples, sem asteriscos nem markdown, ' +
+    'em até 24 linhas no total, com estas partes, cada uma começando pelo seu nome:\n' +
+    'Recomendação: sobre a mudança de comissão do cenário, uma frase coerente com o campo compensa (1 = o cenário compensa se a aposta de vendas se confirmar; 0 = não compensa). ' +
     'Se compensa for 1, diga que a mudança só vale se as vendas chegarem ao mínimo exigido e recomende testá-la com cuidado; ' +
     'se crescimento_minimo_pct for negativo, a comissão é menor e ele pode vender um pouco menos e manter o lucro. ' +
     'Se compensa for 0, recomende não adotar a comissão do cenário e indique a melhor alternativa, que JÁ ESTÁ calculada em ' +
     'melhor_alternativa_pct (com lucro do mês lucro_melhor_alternativa, sem depender de crescimento); não escolha outra e não compare as opções por conta própria. ' +
     'Se melhor_alternativa_pct for igual a entradas.comissao, a melhor alternativa é manter a comissão atual. Não invente motivos. ' +
+    'Para absorver a nova comissão sem depender de vendas, cite o caminho do preço (estrategias.preco) ou o do corte de custo (estrategias.corte_custo), se existirem, ' +
+    'e a comissão mais alta que ainda iguala o lucro de hoje (comissao_maxima_pct). ' +
     'A comissão atual é entradas.comissao: use "manter" só para ela e "reduzir" ou "subir" para as demais. ' +
     'O veredito é FIXO e vem de compensa: nunca o contradiga (se compensa for 1, não diga que o cenário não compensa, e vice-versa). ' +
     'Para saber se o lucro melhora ou piora, use variacao_lucro (positivo = melhora, negativo = piora) e não compare números negativos por conta própria. ' +
-    'Se atual.venda_da_prejuizo for 1, COMECE a Recomendação dizendo que cada venda já dá prejuízo hoje e que o primeiro passo é rever preço ou custo, antes de mexer na comissão. ' +
-    'Se atual.venda_da_prejuizo for 0, NUNCA diga que cada venda já dá prejuízo hoje. ' +
-    'Mesmo que o lucro do mês seja negativo, isso pode ser por causa dos custos fixos, e cada venda ainda contribui. ' +
+    'Se atual.venda_da_prejuizo for 1, COMECE a Recomendação dizendo que cada venda já dá prejuízo hoje e que o primeiro passo é rever preço ou custo. ' +
+    'Se atual.venda_da_prejuizo for 0, NUNCA diga que cada venda já dá prejuízo hoje, mesmo que o lucro do mês seja negativo (pode ser por causa dos custos fixos). ' +
     'Se cenario.venda_da_prejuizo for 1, diga que a nova comissão faria cada venda dar prejuízo. ' +
     'O mínimo exigido de vendas é volume_necessario_un; volume_apostado_un é apenas o que o vendedor apostou, não o mínimo.\n' +
     'Risco: o que acontece com o lucro do mês se a aposta de vendas não vier (use lucro_mes_sem_crescimento e compare com o lucro de hoje). ' +
     'Se mesmo com a aposta o lucro do mês ficar abaixo do de hoje ou negativo, diga isso claramente.\n' +
-    'Teste: como validar na prática sem apostar tudo (por exemplo, aplicar por um período curto, como 30 dias, ou só a parte dos vendedores). ' +
-    'Se você recomendou a escalonada, o teste serve para ver se o parceiro aceita e se as vendas passam de unidades_base: ' +
-    'se não passarem, nada se perde, porque a comissão maior só incide sobre o que passar disso (NÃO use volume_necessario_un nesse caso). ' +
-    'Se recomendou outro caminho e compensa for 1, o critério de parada é vender pelo menos volume_necessario_un unidades por mês; ' +
+    'Teste: como validar a mudança de comissão sem apostar tudo (por exemplo, por um período curto, como 30 dias, ou só com parte das vendas). ' +
+    'Se compensa for 1, o critério de parada é vender pelo menos volume_necessario_un unidades por mês; ' +
     'se compensa for 0, o critério é o lucro real do mês não ficar abaixo do lucro de hoje.\n' +
-    'Mensagem pronta: escreva em até 4 linhas, em primeira pessoa, uma mensagem curta que o vendedor pode enviar ao parceiro (afiliado, representante ou marketplace) propondo o caminho recomendado, ' +
-    'com os percentuais e o volume exatos dos dados (para a escalonada: a comissão atual até unidades_base unidades por mês e a nova comissão só sobre o que passar disso). ' +
-    'É uma proposta do vendedor: NUNCA revele lucro, prejuízo ou margem do negócio, não diga que a venda dá prejuízo, não prometa resultados e não presuma que o parceiro pediu algo. ' +
-    'Se atual.venda_da_prejuizo for 1, ou se a recomendação for não mexer na comissão, não escreva mensagem ao parceiro: ' +
-    'escreva "Sem mensagem ao parceiro por enquanto." e uma frase com o primeiro passo do vendedor.\n' +
-    'Regras: escreva como para uma pessoa leiga. NUNCA escreva nomes de campos nem o valor 0 ou 1 de compensa: ' +
+    'Preço e promoção: use limites. Se preco_abaixo_do_minimo for 1, diga que o preço atual está abaixo do mínimo (preco_minimo) e cada venda perde dinheiro; ' +
+    'senão, se preco_abaixo_da_meta for 1, diga que o preço atual está abaixo do preço para a margem desejada (preco_meta); senão, diga que o preço atual já atinge a margem desejada. ' +
+    'Depois diga se a promoção testada cabe (desconto_cabe: 1 = cabe se as vendas subirem pelo menos desconto_crescimento_minimo_pct; 0 = não cabe) e o maior desconto seguro (desconto_maximo_seguro_pct).\n' +
+    'Anúncios e frete: use limites. Diga se o custo por venda em anúncios testado (entradas.cpa) cabe (anuncio_cabe: 1 = cabe, 0 = não cabe), o custo máximo por venda (cpa_maximo) e o retorno mínimo (roas_equilibrio, escreva "retorno mínimo de Nx sobre o gasto"). ' +
+    'Diga também o frete máximo (frete_maximo) em comparação com o frete atual (entradas.frete).\n' +
+    'Catálogo: SOMENTE se catalogo_resumo.total for maior que 0 (senão omita esta parte). Diga quantos produtos estão abaixo da meta (abaixo_meta) e quantos dão prejuízo (prejuizo), ' +
+    'e indique até 3 prioridades entre os de pior margem do campo catalogo (situacao 3 = prejuízo, 2 = margem abaixo de 15%, 1 = abaixo da meta, 0 = na meta), ' +
+    'citando cada um como P seguido do número n (por exemplo P2) e o preço para a meta (preco_meta). Não invente produtos nem nomes.\n' +
+    'Regras: escreva como para uma pessoa leiga. NUNCA escreva nomes de campos nem os valores 0 ou 1 dos indicadores: ' +
     'diga "o cenário compensa" ou "não compensa", "lucro do mês", "unidades necessárias" etc. ' +
     'Quando o lucro do mês for negativo, escreva "prejuízo de X reais" (sem sinal de menos) em vez de "lucro de -X". ' +
-    'Use SOMENTE números dos dados abaixo, não recalcule nada, na análise cite no máximo 4 números (a mensagem pronta pode usar os necessários), ' +
+    'Escreva somente as partes pedidas, sem acrescentar outras seções (como "Observação"). ' +
+    'Não use palavras de probabilidade (provável, improvável, provavelmente) nem especule sobre causas. ' +
+    'Quando um caminho não existir (valor vazio), diga apenas que não há como absorver por esse caminho; nunca mencione "dados", "campos" nem "cálculo". ' +
+    'Se atual.venda_da_prejuizo for 0, não fale em "perda por unidade": a nova comissão só reduz a margem de cada venda. ' +
+    'Use SOMENTE números dos dados abaixo, não recalcule nada, ' +
     'não invente previsões nem dados de mercado e deixe claro que o aumento de vendas é uma aposta do vendedor.\n\n' + dados;
 
   try {

@@ -57,6 +57,8 @@
   .chip.ok{background:var(--okbg)} .chip.bad{background:var(--badbg)} .chip.warn{background:var(--warnbg)}
   .alert{background:var(--warnbg);color:var(--warn);padding:10px 12px;border-radius:10px;font-weight:600;font-size:.9rem}
 
+  textarea{width:100%;min-height:120px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:.85rem;padding:10px;resize:vertical;box-sizing:border-box}
+  button.sec{background:transparent;color:var(--acc);border:1px solid var(--line);padding:8px 14px;font-weight:600}
   .tw{overflow-x:auto}
   table{width:100%;border-collapse:collapse;font-size:.88rem}
   th{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);text-align:right;padding:8px 8px;border-bottom:1px solid var(--line)}
@@ -96,7 +98,7 @@
     <div class="logo">M</div>
     <div>
       <h1>Margem Segura</h1>
-      <p class="tag0">Veja se mudar a comissão compensa antes de decidir. A conta é por regra; a IA só explica.</p>
+      <p class="tag0">Preço, comissão, promoção, anúncios e frete: veja onde a sua margem está segura antes de decidir. A conta é por regra; a IA só explica.</p>
     </div>
   </header>
 
@@ -130,6 +132,17 @@
         </div>
         <p class="hint">O aumento esperado é uma aposta sua. O simulador mostra o mínimo necessário para valer a pena.</p>
       </section>
+
+      <section class="card">
+        <h2><span class="step">4</span>Promoção, anúncios e meta</h2>
+        <div class="grid">
+          <div><label for="desconto">Desconto da promoção</label><div class="in"><input id="desconto" type="number" inputmode="decimal" step="1" value="10"><span>%</span></div></div>
+          <div><label for="crescPromo">Aumento de vendas esperado na promoção</label><div class="in"><input id="crescPromo" type="number" inputmode="decimal" step="1" value="30"><span>%</span></div></div>
+          <div><label for="cpa">Anúncios: custo por venda</label><div class="in"><span>R$</span><input id="cpa" type="number" inputmode="decimal" step="0.01" value="8"></div></div>
+          <div><label for="margemAlvo">Margem desejada (% do preço)</label><div class="in"><input id="margemAlvo" type="number" inputmode="decimal" step="1" value="25"><span>%</span></div></div>
+        </div>
+        <p class="hint">As respostas aparecem em "Seus limites seguros", mais abaixo.</p>
+      </section>
     </div>
 
     <div class="side">
@@ -156,7 +169,7 @@
   </section>
 
   <section class="card">
-    <h2>Três caminhos para a mesma mudança</h2>
+    <h2>Como absorver a mudança de comissão</h2>
     <div class="tw"><table id="caminhos"></table></div>
     <p class="note" id="caminhosNota"></p>
   </section>
@@ -167,9 +180,24 @@
     <p class="note">"Crescimento necessário" é o aumento de vendas que mantém o lucro igual ao de hoje. Valor negativo significa que você pode vender menos e ainda lucrar o mesmo.</p>
   </section>
 
+  <section class="card">
+    <h2>Seus limites seguros</h2>
+    <div class="tw"><table id="limitesTab"></table></div>
+    <p class="note">Calculado com o preço, o custo, o frete e a comissão atuais, sem IA.</p>
+  </section>
+
+  <section class="card">
+    <h2>Vários produtos de uma vez</h2>
+    <p class="hint" style="margin:0 0 10px">Cole uma linha por produto no formato <b>nome; preço; custo; frete; comissão%</b> (a comissão é opcional). Dá para colar direto de uma planilha. Usa os impostos, a taxa e a margem desejada informados acima.</p>
+    <textarea id="catalogo" placeholder="Camiseta básica; 59,90; 22; 8; 12" aria-label="Lista de produtos"></textarea>
+    <div style="margin:10px 0"><button type="button" class="sec" id="exCat">Usar exemplo</button></div>
+    <div id="catResumo" class="note" style="margin:0 0 8px"></div>
+    <div class="tw"><table id="catTab"></table></div>
+  </section>
+
   <section class="card ia">
     <h2>Plano de decisão com IA</h2>
-    <p class="hint" style="margin:0 0 12px">A IA (Claude) escolhe o melhor caminho entre os acima, avalia o risco, propõe um teste de 30 dias com critério de parada e escreve a mensagem pronta para propor a mudança ao parceiro. Ela recebe só os números calculados, não recalcula nem prevê vendas.</p>
+    <p class="hint" style="margin:0 0 12px">A IA (Claude) lê os números acima e entrega um plano: o que fazer com a comissão, o preço, a promoção, os anúncios e o frete, e quais produtos corrigir primeiro, com um teste de 30 dias. Ela recebe só números, não recalcula nem prevê vendas.</p>
     <button id="gerarIA" type="button">Gerar plano com IA</button>
     <div class="ia-out" id="iaOut" aria-live="polite"></div>
   </section>
@@ -205,7 +233,52 @@ function cenario(p,atual,novaComissao,cresc){
 }
 
 // Dados enviados à IA: tudo calculado aqui, a IA não recalcula nada.
-function montarDados(p,a,c){
+function arred(v,d){return (v===null||!isFinite(v))?null:+v.toFixed(d)}
+function precoPara(p,comissao,margem){ // preço em que a margem de contribuição é "margem" (fração) do preço
+  var den=1-(comissao+p.impostos+p.taxas)/100-margem;
+  return den>0?(p.custo+p.frete)/den:null;
+}
+function limites(p,a){
+  var vf=(p.comissao+p.impostos+p.taxas)/100, mc=a.mc, V=p.volume, V2=V*(1+p.crescPromo/100);
+  var pMin=precoPara(p,p.comissao,0), pMeta=precoPara(p,p.comissao,p.margemAlvo/100);
+  var mcAd=mc-p.cpa;
+  var pD=p.preco*(1-p.desconto/100), mcD=pD*(1-vf)-p.custo-p.frete;
+  var necD=(mcD>0&&V>0)?(a.lucro+p.fixos)/mcD/V-1:null;
+  var mcNeed=V2>0?(a.lucro+p.fixos)/V2:null, pN=(mcNeed!==null&&mc>0)?(mcNeed+p.custo+p.frete)/(1-vf):null;
+  var dMax=(pN!==null&&p.preco>0)?Math.max((1-pN/p.preco)*100,0):null;
+  return {
+    preco_minimo:arred(pMin,2),preco_meta:arred(pMeta,2),
+    preco_abaixo_do_minimo:(pMin!==null&&p.preco<pMin)?1:0,preco_abaixo_da_meta:(pMeta===null||p.preco<pMeta)?1:0,
+    frete_maximo:arred(p.preco*(1-vf)-p.custo,2),
+    cpa_maximo:arred(Math.max(mc,0),2),roas_equilibrio:mc>0?arred(p.preco/mc,1):null,
+    margem_apos_anuncio_un:arred(mcAd,2),margem_apos_anuncio_pct:p.preco>0?arred(mcAd/p.preco*100,1):null,anuncio_cabe:mcAd>0?1:0,
+    desconto_margem_un:arred(mcD,2),desconto_crescimento_minimo_pct:necD===null?null:arred(necD*100,1),
+    desconto_cabe:(mcD>0&&necD!==null&&necD<=p.crescPromo/100)?1:0,
+    desconto_maximo_seguro_pct:arred(dMax,1)
+  };
+}
+function lerNum(s){
+  s=String(s==null?'':s).replace(/[^0-9,.\-]/g,'');
+  if(s.indexOf(',')>=0)s=s.replace(/\./g,'').replace(',','.');
+  var n=parseFloat(s);return isFinite(n)?n:null;
+}
+// Lista de produtos: "nome; preço; custo; frete; comissão%" (ou separado por tab, como numa planilha).
+function parseCatalogo(texto,p){
+  var out=[], linhas=String(texto||'').split(/\r?\n/);
+  for(var i=0;i<linhas.length&&out.length<30;i++){
+    var f=linhas[i].split(/\t|;/);
+    if(f.length<4)continue;
+    var preco=lerNum(f[1]),custo=lerNum(f[2]),frete=lerNum(f[3]);
+    if(preco===null||preco<=0||custo===null||frete===null)continue;
+    var cm=f.length>4?lerNum(f[4]):null, com=cm!==null?cm:p.comissao;
+    var vf=(com+p.impostos+p.taxas)/100, mc=preco*(1-vf)-custo-frete, pct=mc/preco, den=1-vf-p.margemAlvo/100;
+    var sit=mc<=0?3:(pct<0.15?2:(pct<p.margemAlvo/100?1:0));
+    out.push({nome:(f[0]||'').trim().slice(0,40)||('Produto '+(out.length+1)),n:out.length+1,preco:preco,mc:mc,pct:pct,precoMeta:den>0?(custo+frete)/den:null,sit:sit});
+  }
+  return out;
+}
+function montarDados(p,a,c,cat){
+  cat=cat||[];
   var nec=c.necessario; // pode ser negativo: comissão menor permite vender menos e manter o lucro
   var opcoes=[-4,-2,0,2,4,6,8].map(function(d){return p.comissao+d}).filter(function(x){return x>=0}).map(function(cm){
     var n=calcular(p,cm), k=crescimentoNecessario(p,a,n);
@@ -213,37 +286,40 @@ function montarDados(p,a,c){
       crescimento_minimo_pct:isFinite(k)?+(k*100).toFixed(1):null,lucro_mes_sem_crescimento:+(n.mc*p.volume-p.fixos).toFixed(2)};
   });
   var melhor=opcoes.reduce(function(m,o){return o.lucro_mes_sem_crescimento>m.lucro_mes_sem_crescimento?o:m},opcoes[0]); // maior lucro sem depender de crescimento
-  // Caminhos para a mesma mudança (tudo por regra; a IA só escolhe e explica).
+  // Formas de absorver a nova comissão (tudo por regra; a IA só escolhe e explica).
   var V=p.volume, V2=V*(1+p.crescimento/100), mcA=a.mc, mcN=c.novo.mc, sobe=p.novaComissao>p.comissao;
-  var escOk=(sobe&&mcA>0&&mcN>0)?1:0;
-  var escalonada={valida:escOk,unidades_base:Math.round(V),
-    lucro_se_aposta_vem:+(mcA*Math.min(V,V2)+mcN*Math.max(V2-V,0)-p.fixos).toFixed(2),lucro_se_nao_vem:+a.lucro.toFixed(2)};
   var subirTudo={lucro_se_aposta_vem:+c.lucro2.toFixed(2),lucro_se_nao_vem:+(mcN*V-p.fixos).toFixed(2)};
   var den=1-(p.novaComissao+p.impostos+p.taxas)/100, pNovo=(mcA>0&&den>0)?(mcA+p.custo+p.frete)/den:null;
   var preco={preco_novo:(pNovo!==null&&sobe)?+pNovo.toFixed(2):null,aumento_preco_pct:(pNovo!==null&&sobe&&p.preco>0)?+((pNovo/p.preco-1)*100).toFixed(1):null};
+  var redUn=(sobe&&mcA>0&&mcN>0&&p.custo>0&&p.custo-(mcA-mcN)>0)?(mcA-mcN):null;
+  var corte={custo_novo:redUn!==null?+(p.custo-redUn).toFixed(2):null,reducao_custo_pct:redUn!==null?+(redUn/p.custo*100).toFixed(1):null};
   var tetoMc=V2>0?(a.lucro+p.fixos)/V2:null; // margem mínima por unidade para igualar o lucro de hoje com a aposta
   var comMax=(tetoMc!==null&&mcA>0&&p.preco>0)?+(((p.preco-p.custo-p.frete-tetoMc)/p.preco)*100-p.impostos-p.taxas).toFixed(1):null;
+  var piores=cat.slice().sort(function(x,y){return x.pct-y.pct}).slice(0,15).map(function(r){
+    return {n:r.n,margem_un:arred(r.mc,2),margem_pct:arred(r.pct*100,1),preco_meta:arred(r.precoMeta,2),situacao:r.sit}});
   return {entradas:p,
     atual:{margem_un:+a.mc.toFixed(2),margem_pct:+(a.mcPct*100).toFixed(1),markup_pct:+(a.markup*100).toFixed(0),equilibrio_un:isFinite(a.equilibrio)?a.equilibrio:null,lucro_mes:+a.lucro.toFixed(2),queda_maxima_vendas_pct:a.folga>0?+(a.folga*100).toFixed(0):0,venda_da_prejuizo:a.mc<=0?1:0},
     cenario:{nova_comissao_pct:p.novaComissao,crescimento_apostado_pct:p.crescimento,volume_apostado_un:Math.round(c.vol2),volume_necessario_un:isFinite(c.necessario)?Math.ceil(p.volume*(1+nec)):null,margem_un:+c.novo.mc.toFixed(2),lucro_mes:+c.lucro2.toFixed(2),lucro_mes_sem_crescimento:+(c.novo.mc*p.volume-p.fixos).toFixed(2),variacao_lucro:+c.delta.toFixed(2),crescimento_minimo_pct:isFinite(c.necessario)?+(nec*100).toFixed(1):null,
       melhor_alternativa_pct:melhor.comissao_pct,lucro_melhor_alternativa:melhor.lucro_mes_sem_crescimento,
       venda_da_prejuizo:c.novo.mc<=0?1:0,compensa:(a.mc>0&&c.novo.mc>0&&c.delta>=0)?1:0},
-    estrategias:{escalonada:escalonada,subir_tudo:subirTudo,preco:preco,comissao_maxima:{comissao_maxima_pct:comMax}},
+    estrategias:{subir_tudo:subirTudo,preco:preco,corte_custo:corte,comissao_maxima:{comissao_maxima_pct:comMax}},
+    limites:limites(p,a),
+    catalogo:piores,
+    catalogo_resumo:{total:cat.length,abaixo_meta:cat.filter(function(r){return r.sit>=1}).length,prejuizo:cat.filter(function(r){return r.sit===3}).length},
     opcoes:opcoes};
 }
 
 function caminhos(d,p,a){
   var e=d.estrategias, cls=function(v){return v>=a.lucro-0.005?'ok':'bad'};
-  var t='<tr><th>Caminho</th><th>Se a aposta de vendas vier</th><th>Se as vendas ficarem iguais</th></tr>';
-  t+='<tr><td>Comissão de '+p.novaComissao+'% em todas as vendas</td><td class="'+cls(e.subir_tudo.lucro_se_aposta_vem)+'">'+R(e.subir_tudo.lucro_se_aposta_vem)+'</td><td class="'+cls(e.subir_tudo.lucro_se_nao_vem)+'">'+R(e.subir_tudo.lucro_se_nao_vem)+'</td></tr>';
-  if(e.escalonada.valida)t+='<tr><td>'+p.novaComissao+'% só sobre as vendas acima de '+e.escalonada.unidades_base+' un. (abaixo disso, '+p.comissao+'%)</td><td class="'+cls(e.escalonada.lucro_se_aposta_vem)+'">'+R(e.escalonada.lucro_se_aposta_vem)+'</td><td class="ok">'+R(e.escalonada.lucro_se_nao_vem)+'</td></tr>';
-  if(e.preco.preco_novo!==null)t+='<tr><td>Comissão de '+p.novaComissao+'% e preço subindo para '+R(e.preco.preco_novo)+' (+'+e.preco.aumento_preco_pct.toLocaleString('pt-BR')+'%)</td><td class="ok">'+R(a.lucro)+'</td><td class="ok">'+R(a.lucro)+'</td></tr>';
+  var t='<tr><th>Para absorver os '+p.novaComissao+'% de comissão</th><th>Se a aposta de vendas vier</th><th>Se as vendas ficarem iguais</th></tr>';
+  t+='<tr><td>Vender mais (comissão em todas as vendas)</td><td class="'+cls(e.subir_tudo.lucro_se_aposta_vem)+'">'+R(e.subir_tudo.lucro_se_aposta_vem)+'</td><td class="'+cls(e.subir_tudo.lucro_se_nao_vem)+'">'+R(e.subir_tudo.lucro_se_nao_vem)+'</td></tr>';
+  if(e.preco.preco_novo!==null)t+='<tr><td>Subir o preço para '+R(e.preco.preco_novo)+' (+'+e.preco.aumento_preco_pct.toLocaleString('pt-BR')+'%)</td><td class="ok">'+R(a.lucro)+'</td><td class="ok">'+R(a.lucro)+'</td></tr>';
+  if(e.corte_custo.custo_novo!==null)t+='<tr><td>Baixar o custo do produto para '+R(e.corte_custo.custo_novo)+' (-'+e.corte_custo.reducao_custo_pct.toLocaleString('pt-BR')+'%)</td><td class="ok">'+R(a.lucro)+'</td><td class="ok">'+R(a.lucro)+'</td></tr>';
   t+='<tr class="atual"><td>Hoje (comissão de '+p.comissao+'%)</td><td>'+R(a.lucro)+'</td><td>'+R(a.lucro)+'</td></tr>';
   $('caminhos').innerHTML=t;
   var mx=e.comissao_maxima.comissao_maxima_pct;
   $('caminhosNota').textContent=(mx!==null?'Com a sua aposta de +'+p.crescimento+'% em vendas, a comissão mais alta que ainda iguala o lucro de hoje é '+mx.toLocaleString('pt-BR')+'%. ':'')+
-    (e.preco.preco_novo!==null?'O caminho do preço mantém o lucro com as vendas iguais, mas pode afastar clientes: é outra aposta. ':'')+
-    (e.escalonada.valida?'Na comissão escalonada, o lucro nunca fica abaixo do de hoje se as vendas se mantiverem, mas o parceiro precisa aceitar.':'');
+    'Subir o preço pode afastar clientes e baixar o custo depende de negociar com o fornecedor: ambos são apostas.';
 }
 
 var R=function(v){return isFinite(v)?v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'inviável'};
@@ -253,7 +329,8 @@ var $=function(id){return document.getElementById(id)};
 function ler(){
   var g=function(id){return num($(id).value)};
   return {preco:g('preco'),custo:g('custo'),frete:g('frete'),comissao:g('comissao'),impostos:g('impostos'),taxas:g('taxas'),
-    fixos:g('fixos'),volume:g('volume'),novaComissao:g('novaComissao'),crescimento:g('crescimento')};
+    fixos:g('fixos'),volume:g('volume'),novaComissao:g('novaComissao'),crescimento:g('crescimento'),
+    desconto:g('desconto'),crescPromo:g('crescPromo'),cpa:g('cpa'),margemAlvo:g('margemAlvo')};
 }
 
 function veredito(p,a,c){
@@ -325,6 +402,33 @@ function tabela(p,a){
   $('tabela').innerHTML=t;
 }
 
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+var N=function(v,d){return v===null?'-':v.toLocaleString('pt-BR',{minimumFractionDigits:d||0,maximumFractionDigits:d===undefined?1:d})};
+
+function limitesUI(d,p){
+  var l=d.limites, linha=function(q,r,c){return '<tr><td>'+q+'</td><td class="'+(c||'')+'" style="text-align:left">'+r+'</td></tr>'};
+  var t='<tr><th>Pergunta</th><th style="text-align:left">Resposta</th></tr>';
+  t+=linha('Qual o preço mínimo para não perder dinheiro?',l.preco_minimo===null?'inviável com esses custos':R(l.preco_minimo)+' (seu preço: '+R(p.preco)+')',l.preco_abaixo_do_minimo?'bad':'ok');
+  t+=linha('Qual o preço para chegar à margem de '+N(p.margemAlvo,0)+'%?',l.preco_meta===null?'inviável com esses custos':R(l.preco_meta)+' (seu preço: '+R(p.preco)+')',l.preco_abaixo_da_meta?'warn':'ok');
+  t+=linha('Quanto de frete ainda deixa margem?','até '+R(l.frete_maximo)+' por venda (hoje: '+R(p.frete)+')',p.frete>l.frete_maximo?'bad':'');
+  t+=linha('Quanto posso gastar em anúncios por venda?',l.cpa_maximo>0?'até '+R(l.cpa_maximo)+' por venda (retorno mínimo de '+N(l.roas_equilibrio,1)+'x sobre o gasto)':'nada: a venda já não deixa margem',l.cpa_maximo>0?'':'bad');
+  t+=linha('Com anúncio de '+R(p.cpa)+' por venda, como fica a margem?',R(l.margem_apos_anuncio_un)+' por unidade ('+N(l.margem_apos_anuncio_pct,1)+'%)',l.anuncio_cabe?'ok':'bad');
+  t+=linha('A promoção de '+N(p.desconto,0)+'% compensa?',l.desconto_crescimento_minimo_pct===null?'não: a venda ficaria sem margem':'margem de '+R(l.desconto_margem_un)+' por unidade; precisa vender '+N(l.desconto_crescimento_minimo_pct,1)+'% a mais (você espera '+N(p.crescPromo,0)+'%)',l.desconto_cabe?'ok':'bad');
+  t+=linha('Qual o maior desconto seguro?',l.desconto_maximo_seguro_pct===null?'-':'até '+N(l.desconto_maximo_seguro_pct,1)+'% se as vendas subirem '+N(p.crescPromo,0)+'%','');
+  $('limitesTab').innerHTML=t;
+}
+
+var SITUACAO=['<span class="chip ok">na meta</span>','<span class="chip warn">abaixo da meta</span>','<span class="chip bad">margem apertada</span>','<span class="chip bad">prejuízo</span>'];
+function catalogoUI(cat,p){
+  if(!cat.length){$('catResumo').textContent='Nenhum produto lido ainda.';$('catTab').innerHTML='';return;}
+  var ord=cat.slice().sort(function(x,y){return x.pct-y.pct});
+  $('catResumo').textContent=cat.length+' produtos lidos: '+cat.filter(function(r){return r.sit>=1}).length+' abaixo da meta de '+N(p.margemAlvo,0)+'% e '+cat.filter(function(r){return r.sit===3}).length+' dando prejuízo. Pior margem primeiro.';
+  var t='<tr><th>Produto</th><th>Preço</th><th>Margem</th><th>Margem %</th><th>Preço para a meta</th><th>Situação</th></tr>';
+  ord.forEach(function(r){t+='<tr><td>'+esc(r.nome)+'</td><td>'+R(r.preco)+'</td><td>'+R(r.mc)+'</td><td>'+P(r.pct,1)+'</td><td>'+(r.precoMeta===null?'inviável':R(r.precoMeta))+'</td><td>'+SITUACAO[r.sit]+'</td></tr>'});
+  $('catTab').innerHTML=t;
+}
+var EXEMPLO='Camiseta básica; 59,90; 22; 8; 12\nGarrafa térmica; 89,90; 48; 12; 16\nFone bluetooth; 129,90; 86; 15; 18\nCapa de celular; 29,90; 9; 6; 12\nLuminária LED; 74,90; 51; 14; 16\nChaveiro personalizado; 19,90; 12; 5; 12';
+
 function atualizar(){
   var p=ler(), a=calcular(p,p.comissao), c=cenario(p,a,p.novaComissao,p.crescimento);
   $('kpis').innerHTML=
@@ -334,22 +438,25 @@ function atualizar(){
     '<div class="kpi"><b>'+(isFinite(a.equilibrio)?a.equilibrio+' un.':'inviável')+'</b><span>Ponto de equilíbrio por mês</span></div>'+
     '<div class="kpi"><b>'+R(a.lucro)+'</b><span>Lucro do mês hoje</span></div>';
   veredito(p,a,c); medidor(p,a,c); leitura(p,a,c); grafico(p,a,c); tabela(p,a);
-  window.ultimoDados=montarDados(p,a,c);
-  caminhos(window.ultimoDados,p,a);
+  var cat=parseCatalogo($('catalogo').value,p);
+  window.catNomes={}; cat.forEach(function(r){window.catNomes[r.n]=r.nome});
+  window.ultimoDados=montarDados(p,a,c,cat);
+  caminhos(window.ultimoDados,p,a); limitesUI(window.ultimoDados,p); catalogoUI(cat,p);
 }
-document.querySelectorAll('input').forEach(function(i){i.addEventListener('input',atualizar)});
+document.querySelectorAll('input,textarea').forEach(function(i){i.addEventListener('input',atualizar)});
+$('exCat').addEventListener('click',function(){$('catalogo').value=EXEMPLO;atualizar()});
 
 $('gerarIA').addEventListener('click',function(){
   var out=$('iaOut'), btn=this, d=window.ultimoDados;
   out.innerHTML='<div class="sk" style="width:90%"></div><div class="sk" style="width:75%"></div><div class="sk" style="width:82%"></div>';
   btn.disabled=true;
   fetch('/api/relatorio',{method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({entradas:d.entradas,atual:d.atual,cenario:d.cenario,estrategias:d.estrategias,opcoes:d.opcoes})})
+    body:JSON.stringify(d)})
   .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})})
   .then(function(x){
     out.textContent='';
     var el=document.createElement('div'); el.className='txt';
-    el.textContent=(x.ok&&x.j.relatorio)?x.j.relatorio.replace(/\*\*/g,''):((x.j&&x.j.erro)||'Não foi possível gerar agora.');
+    el.textContent=(x.ok&&x.j.relatorio)?x.j.relatorio.replace(/\*\*/g,'').replace(/\bP(\d{1,2})\b/g,function(m,n){return (window.catNomes&&window.catNomes[+n])||m}):((x.j&&x.j.erro)||'Não foi possível gerar agora.');
     out.appendChild(el);
   })
   .catch(function(){out.textContent='Sem conexão com o servidor. A leitura por regra acima continua valendo.'})
