@@ -43,7 +43,7 @@ module.exports = async (req, res) => {
 
   const entradas = soNumeros(corpo.entradas, ['preco', 'custo', 'frete', 'comissao', 'impostos', 'taxas', 'fixos', 'volume', 'novaComissao', 'crescimento']);
   const atual = soNumeros(corpo.atual, ['margem_un', 'margem_pct', 'markup_pct', 'equilibrio_un', 'lucro_mes']);
-  const cenario = soNumeros(corpo.cenario, ['nova_comissao_pct', 'crescimento_apostado_pct', 'margem_un', 'lucro_mes', 'variacao_lucro', 'crescimento_minimo_pct']);
+  const cenario = soNumeros(corpo.cenario, ['nova_comissao_pct', 'crescimento_apostado_pct', 'margem_un', 'lucro_mes', 'lucro_mes_sem_crescimento', 'variacao_lucro', 'crescimento_minimo_pct']);
   if (!entradas || !atual || !cenario) return res.status(400).json({ erro: 'Dados inválidos.' });
 
   // O texto do pedido é montado aqui; o cliente só envia números (evita usar o endpoint como chat livre).
@@ -51,7 +51,7 @@ module.exports = async (req, res) => {
   const prompt =
     'Você é um consultor financeiro para pequenos vendedores. Explique em português simples, em até 8 linhas, ' +
     'o resultado abaixo e diga se o cenário de mudança de comissão compensa. Use SOMENTE os números fornecidos, ' +
-    'não recalcule, não invente previsões e deixe claro que o aumento de vendas é uma aposta do vendedor. ' +
+    'não recalcule nada (se precisar do lucro com as vendas iguais, use lucro_mes_sem_crescimento), não invente previsões e deixe claro que o aumento de vendas é uma aposta do vendedor. ' +
     'Termine com 2 perguntas que o vendedor deve se fazer antes de decidir.\n\n' + dados;
 
   try {

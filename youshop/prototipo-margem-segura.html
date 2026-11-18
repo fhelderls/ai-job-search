@@ -212,6 +212,7 @@ function veredito(p,a,c){
   var n=c.novo, cls, rot, big, sub;
   if(a.mc<=0){cls='bad';rot='Atenção';big='Cada venda dá prejuízo';sub='Corrija preço ou custo antes de mexer em comissão.';}
   else if(n.mc<=0){cls='bad';rot='Não faça';big='Venda abaixo do custo';sub='Com '+p.novaComissao+'% de comissão, nenhum aumento de vendas compensa.';}
+  else if(c.delta>=0&&c.lucro2<0){cls='warn';rot='Melhora, mas o mês continua no prejuízo';big='+'+R(c.delta)+' por mês';sub='Lucro de '+R(a.lucro)+' para '+R(c.lucro2)+' com +'+p.crescimento+'% em vendas.';}
   else if(c.delta>=0){cls='ok';rot='Cenário compensa, se a aposta se confirmar';big='+'+R(c.delta)+' por mês';sub='Lucro de '+R(a.lucro)+' para '+R(c.lucro2)+' com +'+p.crescimento+'% em vendas.';}
   else{cls='bad';rot='Cenário não compensa';big=R(c.delta)+' por mês';sub='Lucro de '+R(a.lucro)+' para '+R(c.lucro2)+' com +'+p.crescimento+'% em vendas.';}
   $('verdict').className='verdict '+cls;
@@ -287,7 +288,7 @@ function atualizar(){
   veredito(p,a,c); medidor(p,a,c); leitura(p,a,c); grafico(p,a,c); tabela(p,a);
   window.ultimoDados={entradas:p,
     atual:{margem_un:+a.mc.toFixed(2),margem_pct:+(a.mcPct*100).toFixed(1),markup_pct:+(a.markup*100).toFixed(0),equilibrio_un:isFinite(a.equilibrio)?a.equilibrio:null,lucro_mes:+a.lucro.toFixed(2)},
-    cenario:{nova_comissao_pct:p.novaComissao,crescimento_apostado_pct:p.crescimento,margem_un:+c.novo.mc.toFixed(2),lucro_mes:+c.lucro2.toFixed(2),variacao_lucro:+c.delta.toFixed(2),crescimento_minimo_pct:isFinite(c.necessario)?+(Math.max(c.necessario,0)*100).toFixed(1):null}};
+    cenario:{nova_comissao_pct:p.novaComissao,crescimento_apostado_pct:p.crescimento,margem_un:+c.novo.mc.toFixed(2),lucro_mes:+c.lucro2.toFixed(2),lucro_mes_sem_crescimento:+(c.novo.mc*p.volume-p.fixos).toFixed(2),variacao_lucro:+c.delta.toFixed(2),crescimento_minimo_pct:isFinite(c.necessario)?+(Math.max(c.necessario,0)*100).toFixed(1):null}};
 }
 document.querySelectorAll('input').forEach(function(i){i.addEventListener('input',atualizar)});
 
