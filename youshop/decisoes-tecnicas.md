@@ -6,30 +6,37 @@ Documento de estudo para a banca do Desafio de Inovação YouShop. Cada item diz
 O vendedor muda a comissão ou o preço sem saber quanto precisa vender a mais para o lucro não cair. O Margem Segura calcula isso por regra e uma IA explica o resultado em linguagem simples.
 
 ## 2. Arquitetura
-- **Site estático** (um HTML) que faz toda a conta no navegador.
-- **Uma função serverless** (`/api/relatorio`, na Vercel) que recebe só números e chama a API da Claude para escrever a explicação.
+- **Site estático** (`margem-segura/index.html`) que faz toda a conta no navegador, usando três módulos em `margem-segura/core/`:
+  - `calc.js`: cálculo determinístico (margem, equilíbrio, limites, catálogo, plataformas). Sem DOM e sem IA.
+  - `decisoes.js`: motor de decisões. Transforma os números num plano em português, só por regra.
+  - `schema.js`: lista única dos campos que a página envia à API (a API aceita só números nesses campos).
+- **Uma função serverless** (`/api/relatorio`, na Vercel) que valida os números pelo esquema, refaz o plano com o mesmo `decisoes.js` e pede à Claude só que reescreva esse plano em linguagem simples.
 - **Sem banco de dados e sem login.** O protótipo não guarda dados do usuário.
+- **Testes:** `tests/calc.test.mjs` (24 testes unitários do núcleo, sem rede: `node --test tests/`) e `tests/avaliacao-ia.mjs` (10 cenários contra a IA publicada).
 
-Por quê: o desafio pede um protótipo funcional em poucos dias. Esse desenho tem pouca coisa para quebrar e custo quase zero.
+Por quê: o desafio pede um protótipo funcional em poucos dias. Esse desenho tem pouca coisa para quebrar e custo quase zero. Os mesmos três módulos rodam no navegador, na API e nos testes, então não há duas versões da regra.
+
+**Redesenho de 18/11/2026.** A primeira versão era um simulador de comissão de um produto só. A entrevista 1 mostrou que isso tem pouco valor (as plataformas já têm calculadora) e que a dor é comparar produtos entre plataformas. A página passou a abrir pelo **catálogo** (produto × plataforma, pior margem primeiro, resumo por plataforma e o mesmo produto comparado entre plataformas), e o simulador virou o detalhe de um produto (botão "Simular" em cada linha). O modelo ganhou os custos que o entrevistado citou: taxa fixa por venda, comissão de afiliados e ROAS dos anúncios.
 
 ## 3. Decisões e justificativas
 
 **3.1 A conta é por regra, não por IA**
-- Margem de contribuição = preço − custo − frete − preço × (comissão + impostos + taxas).
+- Margem de contribuição = preço − custo − frete − taxa fixa por venda − preço × (comissão + afiliados + impostos + taxa de pagamento).
 - Lucro = margem × volume − custos fixos. Ponto de equilíbrio = custos fixos ÷ margem.
 - Crescimento necessário = quanto o volume precisa subir na nova comissão para igualar o lucro de hoje.
 - Por quê: dinheiro exige resultado exato e repetível. Um LLM pode errar conta ou dar respostas diferentes para a mesma entrada. É a mesma regra que usei no PetCore: regras primeiro, IA só onde linguagem natural ajuda.
 
-**3.2 A IA só explica, mas entrega um plano**
-- A regra calcula tudo e envia à IA os números, o veredito (`compensa` 1 ou 0), a melhor alternativa entre as comissões testadas, os limites de preço, frete, anúncio e desconto, e a lista de produtos com a situação de cada um. A IA escreve as partes **Recomendação**, **Risco**, **Teste** (30 dias, com critério de parada), **Preço e promoção**, **Anúncios e frete** e **Catálogo** (as 3 prioridades).
-- Por quê: a primeira versão só repetia os números que a tela já mostrava, então não agregava nada. O valor da IA aqui é traduzir números em decisão e em próximos passos para quem não é de finanças, não calcular.
+**3.2 O plano é por regra; a IA só reescreve (mudou em 18/11/2026)**
+- O motor `core/decisoes.js` gera, só por regra, as partes **Recomendação**, **Risco**, **Teste** (30 dias, com critério de parada), **Preço e promoção**, **Anúncios e frete** e **Catálogo** (as 3 prioridades e a pior e a melhor plataforma). O plano aparece na tela sem IA e muda conforme o vendedor digita.
+- A IA (botão opcional) recebe esse plano pronto e só o reescreve em linguagem mais simples, sem poder mudar números, veredito nem recomendação.
+- Por quê: na versão anterior as regras de decisão estavam escritas dentro de um prompt de cerca de 40 linhas, e o modelo menor errava algo diferente a cada rodada (ver 3.6 e 3.9). Tirar a decisão do prompt deixa o que é conta e comparação no código, que é exato e testável, e reduz o risco da IA ao texto.
 
 **3.3 A IA não prevê vendas**
 - O aumento de vendas é uma aposta que o vendedor digita. O sistema mostra o mínimo necessário, mas não afirma que vai acontecer.
 - Por quê: não há dados reais para estimar a reação das vendas a uma mudança de comissão. Inventar essa previsão seria enganar o usuário.
 
 **3.4 O prompt é montado no servidor**
-- O navegador envia só números. O servidor valida que cada campo é numérico e dentro de um limite, e escreve o texto do pedido.
+- O navegador envia só números. O servidor valida pelo esquema compartilhado (`core/schema.js`) que cada campo é numérico e dentro de um limite, refaz o plano por regra e escreve o texto do pedido. Respostas iguais para os mesmos números vêm de um cache, sem gastar crédito.
 - Por quê: se o navegador mandasse texto livre, qualquer pessoa usaria o endpoint como chat gratuito às custas do meu crédito, ou tentaria manipular o modelo (prompt injection).
 
 **3.5 Chave de API no servidor**
@@ -71,7 +78,9 @@ Fiz uma avaliação com 8 cenários fixos (lucro sobe, lucro cai, venda abaixo d
 2. **Veredito:** confere se o texto concorda com a regra (heurística por palavras).
 3. **Leitura humana de cada texto**, refazendo a conta à mão.
 
-Resultado da avaliação (18/11/2026):
+**Estado após o redesenho (18/11/2026):** os resultados abaixo são da versão anterior, em que a IA escrevia o plano a partir de um prompt longo. Na versão atual a IA só reescreve um plano gerado por regra. O script foi adaptado (10 cenários, incluindo taxa fixa, afiliados e plataformas) e o plano por regra passa nos mesmos checadores (`USAR_PLANO=1 node tests/avaliacao-ia.mjs`, sem gastar crédito, 10 de 10). **A rodada contra a IA publicada ainda não foi feita** (precisa da chave e do site republicado), então não há número novo para citar na banca.
+
+Resultado da avaliação (18/11/2026, versão anterior):
 - **1ª rodada:** o checador automático passou 8 de 8, mas a leitura humana achou 1 erro. No cenário base a IA disse "se as vendas ficarem iguais, o lucro cai para R$ 800". O certo era R$ 400. O R$ 800 existia nos dados, só foi usado no lugar errado, então o checador de números não pegou.
 - **Causa:** a IA precisou calcular um valor que a regra não entregou (lucro com a nova comissão e vendas iguais).
 - **Correção:** a regra passou a enviar esse valor (`lucro_mes_sem_crescimento`) e o prompt manda a IA usá-lo.
@@ -119,16 +128,18 @@ Duas camadas, uma do produto e uma da IA. Os limites abaixo são propostas minha
 - **Subir o preço não prevê a reação da demanda.** O simulador mostra o preço que mantém a margem, mas não quanto as vendas caem se o preço sobe. O mesmo vale para o desconto: o aumento de vendas esperado é palpite do vendedor.
 - **O custo por venda em anúncios é um valor médio informado pelo usuário.** O simulador não mede campanha nem rastreia vendas por anúncio.
 - **A margem usa só custos variáveis.** Os custos fixos entram no lucro do mês e no equilíbrio, não na margem de cada produto do catálogo.
-- **Uma única linha de produto por simulação.** Vendedor com muitos produtos precisa simular um de cada vez.
+- **O simulador cobre um produto por vez, e os custos fixos do mês são todos atribuídos a ele.** O catálogo mostra a margem de contribuição de vários produtos e plataformas de uma vez (até 30 linhas), mas sem custos fixos. O rateio dos fixos entre produtos não existe.
+- **O catálogo vem de texto colado, não de integração com as plataformas.** O vendedor precisa informar as comissões de cada uma.
 - **Limite de uso fraco:** a contagem por IP fica na memória de cada instância da função e pode ser contornada. Em produção usaria um banco ou serviço de limite de taxa.
 - **Sem dados reais de usuários ainda.** A evidência de mercado vem das entrevistas que estou fazendo.
 - **Avaliação da IA pequena:** 8 cenários e leitura feita por mim. Falta a avaliação por usuários reais.
 
 ## 7. Próximos passos
-1. Ampliar os casos de teste (mais cenários, rodar várias vezes cada um) e fazer a IA citar só valores que já vêm prontos da regra, inclusive diferenças.
-2. Entrada em lote: subir a planilha de produtos e mostrar quais têm margem insegura.
-3. Salvar cenários e histórico por usuário (login, banco).
-4. Calibrar a previsão de vendas com dados reais de quem aceitar compartilhar.
+1. Rodar `tests/avaliacao-ia.mjs` contra o site republicado (a IA agora só reescreve o plano) e ler os textos à mão; depois testar de novo o modelo menor (Haiku, variável `MODELO_IA`), já que a decisão saiu do prompt.
+2. Validar o catálogo com as próximas entrevistas: o entrevistado 1 citou comparar produtos entre plataformas como a dor; é preciso confirmar com mais gente.
+3. Importar arquivo CSV (hoje é texto colado) e salvar o catálogo e os cenários por usuário (login, banco).
+4. Ratear os custos fixos entre produtos e trocar o limite de uso em memória por um serviço de limite de taxa.
+5. Calibrar a previsão de vendas com dados reais de quem aceitar compartilhar.
 
 ## 8. Respostas curtas para decorar
 - **Por que não usar só IA?** Porque dinheiro exige conta exata. A IA explica, a regra decide.

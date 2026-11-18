@@ -6,53 +6,56 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { createRequire } from 'node:module';
 
 const aqui = dirname(fileURLToPath(import.meta.url));
 const base = process.argv[2] || 'https://margem-segura-seven.vercel.app';
 
-// Reaproveita as funções de cálculo do próprio site, sem copiá-las.
-const html = readFileSync(join(aqui, '..', 'index.html'), 'utf8');
-const ini = html.indexOf('function num(');
-const fim = html.indexOf('var R=function');
-const { calcular, crescimentoNecessario, cenario, montarDados, parseCatalogo } = new Function(
-  html.slice(ini, fim) + '; return {calcular, crescimentoNecessario, cenario, montarDados, parseCatalogo};'
-)();
+// Usa os mesmos módulos que a página e a API (core/), sem copiar código.
+const require = createRequire(import.meta.url);
+const { calcular, cenario, montarDados, parseCatalogo, entradasPadrao } = require('../core/calc.js');
+const decisoes = require('../core/decisoes.js');
 
 const CAT_A = 'Camiseta básica; 59,90; 22; 8; 12\nGarrafa térmica; 89,90; 48; 12; 16\nFone bluetooth; 129,90; 86; 15; 18\nCapa de celular; 29,90; 9; 6; 12\nLuminária LED; 74,90; 51; 14; 16\nChaveiro personalizado; 19,90; 12; 5; 12';
 const CAT_B = 'Kit cabos; 39,90; 30; 9; 16\nMouse; 49,90; 28; 8; 14\nSuporte; 24,90; 8; 4; 12';
-// [nome, [preco, custo, frete, comissao, impostos, taxas, fixos, volume, novaComissao, crescimento, desconto, crescPromo, cpa, margemAlvo], catalogo]
+// Catálogo com plataformas (dor da entrevista 1: comparar o mesmo produto entre plataformas).
+const CAT_C = 'Camiseta; 59,90; 22; 8; 12; 0; 0; Shopee\nCamiseta; 59,90; 22; 8; 18; 4; 0; Mercado Livre\nFone; 129,90; 78; 15; 18; 5; 0; Mercado Livre\nCapa; 29,90; 7; 6; 14; 4; 0; Shopee';
+// [nome, entradas (o que faltar usa entradasPadrao), catálogo]. ROAS = preço / custo por venda dos anúncios da versão anterior.
 const CASOS = [
-  ['1 base: lucro sobe', [100, 40, 0, 12, 6, 4, 3000, 100, 16, 20, 10, 30, 8, 25], CAT_A],
-  ['2 lucro cai (aposta baixa)', [100, 40, 0, 12, 6, 4, 3000, 100, 20, 5, 20, 10, 15, 30], ''],
-  ['3 venda abaixo do custo', [100, 70, 0, 12, 6, 4, 3000, 100, 25, 50, 30, 50, 40, 20], CAT_B],
-  ['4 margem atual ja negativa', [100, 90, 5, 12, 6, 4, 2000, 100, 14, 10, 15, 20, 12, 25], CAT_A],
-  ['5 comissao menor', [100, 40, 0, 12, 6, 4, 3000, 100, 8, 5, 5, 10, 3, 25], ''],
-  ['6 margem baixa (<15%)', [100, 60, 5, 10, 6, 4, 2000, 100, 12, 30, 10, 30, 8, 25], CAT_B],
-  ['7 loja pequena', [50, 20, 3, 15, 4, 3, 800, 40, 18, 10, 10, 25, 5, 30], ''],
-  ['8 aposta zero', [80, 30, 2, 10, 6, 4, 1500, 60, 14, 0, 25, 40, 10, 35], CAT_A],
+  ['1 base: lucro sobe', { roas: 12.5 }, CAT_A],
+  ['2 lucro cai (aposta baixa)', { novaComissao: 20, crescimento: 5, desconto: 20, crescPromo: 10, roas: 6.7, margemAlvo: 30 }, ''],
+  ['3 venda abaixo do custo', { custo: 70, novaComissao: 25, crescimento: 50, desconto: 30, crescPromo: 50, roas: 2.5, margemAlvo: 20 }, CAT_B],
+  ['4 margem atual ja negativa', { custo: 90, frete: 5, fixos: 2000, novaComissao: 14, crescimento: 10, desconto: 15, crescPromo: 20, roas: 8.3 }, CAT_A],
+  ['5 comissao menor', { novaComissao: 8, crescimento: 5, desconto: 5, crescPromo: 10, roas: 33.3 }, ''],
+  ['6 margem baixa (<15%)', { custo: 60, frete: 5, comissao: 10, fixos: 2000, novaComissao: 12, crescimento: 30, roas: 12.5 }, CAT_B],
+  ['7 loja pequena', { preco: 50, custo: 20, frete: 3, comissao: 15, impostos: 4, taxas: 3, fixos: 800, volume: 40, novaComissao: 18, crescimento: 10, desconto: 10, crescPromo: 25, roas: 10, margemAlvo: 30 }, ''],
+  ['8 aposta zero', { preco: 80, custo: 30, frete: 2, comissao: 10, fixos: 1500, volume: 60, novaComissao: 14, crescimento: 0, desconto: 25, crescPromo: 40, roas: 8, margemAlvo: 35 }, CAT_A],
+  ['9 taxa fixa e afiliado', { frete: 5, taxaFixa: 5, afiliado: 4, comissao: 16, novaComissao: 19, crescimento: 15, roas: 16 }, CAT_C],
+  ['10 sem anuncios, com plataformas', { roas: 0, novaComissao: 14 }, CAT_C],
 ];
 
-function montar(v, catTexto) {
-  const [preco, custo, frete, comissao, impostos, taxas, fixos, volume, novaComissao, crescimento, desconto, crescPromo, cpa, margemAlvo] = v;
-  const p = { preco, custo, frete, comissao, impostos, taxas, fixos, volume, novaComissao, crescimento, desconto, crescPromo, cpa, margemAlvo };
+function montar(parcial, catTexto) {
+  const p = entradasPadrao(parcial);
   const a = calcular(p, p.comissao), c = cenario(p, a, p.novaComissao, p.crescimento);
   const dados = montarDados(p, a, c, parseCatalogo(catTexto, p)); // mesma função que a página usa para montar o que vai à IA
   const compensa = a.mc > 0 && c.novo.mc > 0 && c.delta >= 0;
   const derivados = [p.volume * (1 + p.crescimento / 100), Math.ceil(p.volume * (1 + Math.max(c.necessario, 0))), p.crescimento / 100];
-  return { dados, compensa, derivados };
+  return { dados, compensa, derivados, plano: decisoes.planoTexto(decisoes.plano(dados)) };
 }
 
-function permitidos(dados, derivados) {
+function numerosDoTexto(t) {
+  return (t.match(/\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?/g) || []).map((x) => parseFloat(x.replace(/\./g, '').replace(',', '.')));
+}
+
+// Números que a IA pode citar: os dados enviados, os derivados e os do plano por regra que ela reescreve.
+function permitidos(dados, derivados, plano) {
   const s = new Set([1, 2, 30]); // marcadores de lista, "2 perguntas" e "30 dias" (sugestão de prazo do teste, não é dado do cálculo)
   const add = (x) => { if (typeof x === 'number' && isFinite(x)) { s.add(Math.abs(x)); s.add(Math.round(Math.abs(x))); } };
   const percorre = (x) => { if (x && typeof x === 'object') Object.values(x).forEach(percorre); else add(x); };
   percorre(dados);
   derivados.forEach(add);
+  numerosDoTexto(plano).forEach(add);
   return [...s];
-}
-
-function numerosDoTexto(t) {
-  return (t.match(/\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?/g) || []).map((x) => parseFloat(x.replace(/\./g, '').replace(',', '.')));
 }
 
 function veredito(texto, compensa) {
@@ -66,14 +69,17 @@ function veredito(texto, compensa) {
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const resultados = [];
 for (const [nome, v, catTexto] of CASOS) {
-  const { dados, compensa, derivados } = montar(v, catTexto);
+  const { dados, compensa, derivados, plano } = montar(v, catTexto);
   let texto = '', erro = null;
-  try {
+  if (process.env.USAR_PLANO) {
+    // Sem chamar a IA: aplica os mesmos checadores ao plano gerado por regra (não gasta crédito).
+    texto = plano;
+  } else try {
     const r = await fetch(base + '/api/relatorio', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(dados) });
     const j = await r.json();
     if (r.ok && j.relatorio) texto = j.relatorio; else erro = j.erro || ('HTTP ' + r.status);
   } catch (e) { erro = String(e); }
-  const perm = permitidos(dados, derivados);
+  const perm = permitidos(dados, derivados, plano);
   const fora = texto ? [...new Set(numerosDoTexto(texto).filter((x) => !perm.some((p) => Math.abs(p - x) <= 0.051)))] : [];
   // Erros de interpretação que o checador de números não pega.
   const alertas = [];
