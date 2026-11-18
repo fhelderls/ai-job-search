@@ -156,15 +156,21 @@
   </section>
 
   <section class="card">
+    <h2>Três caminhos para a mesma mudança</h2>
+    <div class="tw"><table id="caminhos"></table></div>
+    <p class="note" id="caminhosNota"></p>
+  </section>
+
+  <section class="card">
     <h2>Comparação de comissões</h2>
     <div class="tw"><table id="tabela"></table></div>
     <p class="note">"Crescimento necessário" é o aumento de vendas que mantém o lucro igual ao de hoje. Valor negativo significa que você pode vender menos e ainda lucrar o mesmo.</p>
   </section>
 
   <section class="card ia">
-    <h2>Relatório explicado pela IA</h2>
-    <p class="hint" style="margin:0 0 12px">Envia só os números calculados acima à IA (Claude), que escreve a explicação em linguagem simples. Ela não recalcula nem prevê vendas.</p>
-    <button id="gerarIA" type="button">Gerar relatório com IA</button>
+    <h2>Plano de decisão com IA</h2>
+    <p class="hint" style="margin:0 0 12px">A IA (Claude) escolhe o melhor caminho entre os acima, avalia o risco, propõe um teste de 30 dias com critério de parada e escreve a mensagem pronta para propor a mudança ao parceiro. Ela recebe só os números calculados, não recalcula nem prevê vendas.</p>
+    <button id="gerarIA" type="button">Gerar plano com IA</button>
     <div class="ia-out" id="iaOut" aria-live="polite"></div>
   </section>
 
@@ -207,12 +213,37 @@ function montarDados(p,a,c){
       crescimento_minimo_pct:isFinite(k)?+(k*100).toFixed(1):null,lucro_mes_sem_crescimento:+(n.mc*p.volume-p.fixos).toFixed(2)};
   });
   var melhor=opcoes.reduce(function(m,o){return o.lucro_mes_sem_crescimento>m.lucro_mes_sem_crescimento?o:m},opcoes[0]); // maior lucro sem depender de crescimento
+  // Caminhos para a mesma mudança (tudo por regra; a IA só escolhe e explica).
+  var V=p.volume, V2=V*(1+p.crescimento/100), mcA=a.mc, mcN=c.novo.mc, sobe=p.novaComissao>p.comissao;
+  var escOk=(sobe&&mcA>0&&mcN>0)?1:0;
+  var escalonada={valida:escOk,unidades_base:Math.round(V),
+    lucro_se_aposta_vem:+(mcA*Math.min(V,V2)+mcN*Math.max(V2-V,0)-p.fixos).toFixed(2),lucro_se_nao_vem:+a.lucro.toFixed(2)};
+  var subirTudo={lucro_se_aposta_vem:+c.lucro2.toFixed(2),lucro_se_nao_vem:+(mcN*V-p.fixos).toFixed(2)};
+  var den=1-(p.novaComissao+p.impostos+p.taxas)/100, pNovo=(mcA>0&&den>0)?(mcA+p.custo+p.frete)/den:null;
+  var preco={preco_novo:(pNovo!==null&&sobe)?+pNovo.toFixed(2):null,aumento_preco_pct:(pNovo!==null&&sobe&&p.preco>0)?+((pNovo/p.preco-1)*100).toFixed(1):null};
+  var tetoMc=V2>0?(a.lucro+p.fixos)/V2:null; // margem mínima por unidade para igualar o lucro de hoje com a aposta
+  var comMax=(tetoMc!==null&&mcA>0&&p.preco>0)?+(((p.preco-p.custo-p.frete-tetoMc)/p.preco)*100-p.impostos-p.taxas).toFixed(1):null;
   return {entradas:p,
     atual:{margem_un:+a.mc.toFixed(2),margem_pct:+(a.mcPct*100).toFixed(1),markup_pct:+(a.markup*100).toFixed(0),equilibrio_un:isFinite(a.equilibrio)?a.equilibrio:null,lucro_mes:+a.lucro.toFixed(2),queda_maxima_vendas_pct:a.folga>0?+(a.folga*100).toFixed(0):0,venda_da_prejuizo:a.mc<=0?1:0},
     cenario:{nova_comissao_pct:p.novaComissao,crescimento_apostado_pct:p.crescimento,volume_apostado_un:Math.round(c.vol2),volume_necessario_un:isFinite(c.necessario)?Math.ceil(p.volume*(1+nec)):null,margem_un:+c.novo.mc.toFixed(2),lucro_mes:+c.lucro2.toFixed(2),lucro_mes_sem_crescimento:+(c.novo.mc*p.volume-p.fixos).toFixed(2),variacao_lucro:+c.delta.toFixed(2),crescimento_minimo_pct:isFinite(c.necessario)?+(nec*100).toFixed(1):null,
       melhor_alternativa_pct:melhor.comissao_pct,lucro_melhor_alternativa:melhor.lucro_mes_sem_crescimento,
       venda_da_prejuizo:c.novo.mc<=0?1:0,compensa:(a.mc>0&&c.novo.mc>0&&c.delta>=0)?1:0},
+    estrategias:{escalonada:escalonada,subir_tudo:subirTudo,preco:preco,comissao_maxima:{comissao_maxima_pct:comMax}},
     opcoes:opcoes};
+}
+
+function caminhos(d,p,a){
+  var e=d.estrategias, cls=function(v){return v>=a.lucro-0.005?'ok':'bad'};
+  var t='<tr><th>Caminho</th><th>Se a aposta de vendas vier</th><th>Se as vendas ficarem iguais</th></tr>';
+  t+='<tr><td>Comissão de '+p.novaComissao+'% em todas as vendas</td><td class="'+cls(e.subir_tudo.lucro_se_aposta_vem)+'">'+R(e.subir_tudo.lucro_se_aposta_vem)+'</td><td class="'+cls(e.subir_tudo.lucro_se_nao_vem)+'">'+R(e.subir_tudo.lucro_se_nao_vem)+'</td></tr>';
+  if(e.escalonada.valida)t+='<tr><td>'+p.novaComissao+'% só sobre as vendas acima de '+e.escalonada.unidades_base+' un. (abaixo disso, '+p.comissao+'%)</td><td class="'+cls(e.escalonada.lucro_se_aposta_vem)+'">'+R(e.escalonada.lucro_se_aposta_vem)+'</td><td class="ok">'+R(e.escalonada.lucro_se_nao_vem)+'</td></tr>';
+  if(e.preco.preco_novo!==null)t+='<tr><td>Comissão de '+p.novaComissao+'% e preço subindo para '+R(e.preco.preco_novo)+' (+'+e.preco.aumento_preco_pct.toLocaleString('pt-BR')+'%)</td><td class="ok">'+R(a.lucro)+'</td><td class="ok">'+R(a.lucro)+'</td></tr>';
+  t+='<tr class="atual"><td>Hoje (comissão de '+p.comissao+'%)</td><td>'+R(a.lucro)+'</td><td>'+R(a.lucro)+'</td></tr>';
+  $('caminhos').innerHTML=t;
+  var mx=e.comissao_maxima.comissao_maxima_pct;
+  $('caminhosNota').textContent=(mx!==null?'Com a sua aposta de +'+p.crescimento+'% em vendas, a comissão mais alta que ainda iguala o lucro de hoje é '+mx.toLocaleString('pt-BR')+'%. ':'')+
+    (e.preco.preco_novo!==null?'O caminho do preço mantém o lucro com as vendas iguais, mas pode afastar clientes: é outra aposta. ':'')+
+    (e.escalonada.valida?'Na comissão escalonada, o lucro nunca fica abaixo do de hoje se as vendas se mantiverem, mas o parceiro precisa aceitar.':'');
 }
 
 var R=function(v){return isFinite(v)?v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'inviável'};
@@ -304,6 +335,7 @@ function atualizar(){
     '<div class="kpi"><b>'+R(a.lucro)+'</b><span>Lucro do mês hoje</span></div>';
   veredito(p,a,c); medidor(p,a,c); leitura(p,a,c); grafico(p,a,c); tabela(p,a);
   window.ultimoDados=montarDados(p,a,c);
+  caminhos(window.ultimoDados,p,a);
 }
 document.querySelectorAll('input').forEach(function(i){i.addEventListener('input',atualizar)});
 
@@ -312,7 +344,7 @@ $('gerarIA').addEventListener('click',function(){
   out.innerHTML='<div class="sk" style="width:90%"></div><div class="sk" style="width:75%"></div><div class="sk" style="width:82%"></div>';
   btn.disabled=true;
   fetch('/api/relatorio',{method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({entradas:d.entradas,atual:d.atual,cenario:d.cenario,opcoes:d.opcoes})})
+    body:JSON.stringify({entradas:d.entradas,atual:d.atual,cenario:d.cenario,estrategias:d.estrategias,opcoes:d.opcoes})})
   .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})})
   .then(function(x){
     out.textContent='';

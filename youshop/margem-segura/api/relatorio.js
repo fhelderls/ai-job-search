@@ -46,15 +46,25 @@ module.exports = async (req, res) => {
   const cenario = soNumeros(corpo.cenario, ['nova_comissao_pct', 'crescimento_apostado_pct', 'volume_apostado_un', 'volume_necessario_un', 'margem_un', 'lucro_mes', 'lucro_mes_sem_crescimento', 'variacao_lucro', 'crescimento_minimo_pct', 'melhor_alternativa_pct', 'lucro_melhor_alternativa', 'venda_da_prejuizo', 'compensa']);
   const listaOpcoes = Array.isArray(corpo.opcoes) && corpo.opcoes.length > 0 && corpo.opcoes.length <= 8 ? corpo.opcoes : null;
   const opcoes = listaOpcoes ? listaOpcoes.map((o) => soNumeros(o, ['comissao_pct', 'margem_un', 'equilibrio_un', 'crescimento_minimo_pct', 'lucro_mes_sem_crescimento'])) : null;
-  if (!entradas || !atual || !cenario || !opcoes || opcoes.some((o) => !o)) return res.status(400).json({ erro: 'Dados inválidos.' });
+  const est = corpo.estrategias && typeof corpo.estrategias === 'object' ? corpo.estrategias : null;
+  const estrategias = est ? {
+    escalonada: soNumeros(est.escalonada, ['valida', 'unidades_base', 'lucro_se_aposta_vem', 'lucro_se_nao_vem']),
+    subir_tudo: soNumeros(est.subir_tudo, ['lucro_se_aposta_vem', 'lucro_se_nao_vem']),
+    preco: soNumeros(est.preco, ['preco_novo', 'aumento_preco_pct']),
+    comissao_maxima: soNumeros(est.comissao_maxima, ['comissao_maxima_pct']),
+  } : null;
+  if (!entradas || !atual || !cenario || !opcoes || opcoes.some((o) => !o) || !estrategias || Object.values(estrategias).some((o) => !o)) return res.status(400).json({ erro: 'Dados inválidos.' });
 
   // O texto do pedido é montado aqui; o cliente só envia números (evita usar o endpoint como chat livre).
-  const dados = JSON.stringify({ entradas, atual, cenario, opcoes }, null, 2);
+  const dados = JSON.stringify({ entradas, atual, cenario, estrategias, opcoes }, null, 2);
   const prompt =
-    'Você é um consultor que ajuda um pequeno vendedor a DECIDIR se muda a comissão. Ele já vê na tela todos os números calculados ' +
-    '(margem, equilíbrio, lucro), então NÃO narre nem repita o que a tela mostra. Responda em português simples, em até 7 linhas, ' +
-    'sem asteriscos nem markdown, com estas três partes, cada uma começando pelo seu nome:\n' +
+    'Você é um consultor que ajuda um pequeno vendedor a DECIDIR como mudar a comissão. Ele já vê na tela as tabelas de números, ' +
+    'então NÃO narre nem repita o que a tela mostra: entregue decisão e material pronto. Responda em português simples, em até 14 linhas no total, ' +
+    'sem asteriscos nem markdown, com estas quatro partes, cada uma começando pelo seu nome:\n' +
     'Recomendação: uma frase coerente com o campo compensa (1 = o cenário compensa se a aposta de vendas se confirmar; 0 = não compensa). ' +
+    'Escolha UM caminho entre os de "estrategias": subir_tudo (comissão maior em todas as vendas), escalonada (comissão maior só sobre as vendas acima de unidades_base; vale só se escalonada.valida for 1) ou preco (comissão maior com aumento de preço para manter a margem por unidade). ' +
+    'Se compensa for 1 e escalonada.valida for 1, recomende propor primeiro a escalonada, porque a comissão maior só incide sobre as vendas extras e o lucro não cai abaixo do de hoje se as vendas se mantiverem; ' +
+    'a comissão em todas as vendas fica como segunda opção, só se o parceiro exigir. Cite comissao_maxima_pct como a comissão mais alta que ainda iguala o lucro de hoje com a aposta dele. ' +
     'Se compensa for 1, diga que a mudança só vale se as vendas chegarem ao mínimo exigido e recomende testá-la com cuidado; ' +
     'se crescimento_minimo_pct for negativo, a comissão é menor e ele pode vender um pouco menos e manter o lucro. ' +
     'Se compensa for 0, recomende não adotar a comissão do cenário e indique a melhor alternativa, que JÁ ESTÁ calculada em ' +
@@ -71,12 +81,19 @@ module.exports = async (req, res) => {
     'Risco: o que acontece com o lucro do mês se a aposta de vendas não vier (use lucro_mes_sem_crescimento e compare com o lucro de hoje). ' +
     'Se mesmo com a aposta o lucro do mês ficar abaixo do de hoje ou negativo, diga isso claramente.\n' +
     'Teste: como validar na prática sem apostar tudo (por exemplo, aplicar por um período curto, como 30 dias, ou só a parte dos vendedores). ' +
-    'Se compensa for 1, o critério de parada é vender pelo menos volume_necessario_un unidades por mês; ' +
+    'Se você recomendou a escalonada, o teste serve para ver se o parceiro aceita e se as vendas passam de unidades_base: ' +
+    'se não passarem, nada se perde, porque a comissão maior só incide sobre o que passar disso (NÃO use volume_necessario_un nesse caso). ' +
+    'Se recomendou outro caminho e compensa for 1, o critério de parada é vender pelo menos volume_necessario_un unidades por mês; ' +
     'se compensa for 0, o critério é o lucro real do mês não ficar abaixo do lucro de hoje.\n' +
+    'Mensagem pronta: escreva em até 4 linhas, em primeira pessoa, uma mensagem curta que o vendedor pode enviar ao parceiro (afiliado, representante ou marketplace) propondo o caminho recomendado, ' +
+    'com os percentuais e o volume exatos dos dados (para a escalonada: a comissão atual até unidades_base unidades por mês e a nova comissão só sobre o que passar disso). ' +
+    'É uma proposta do vendedor: NUNCA revele lucro, prejuízo ou margem do negócio, não diga que a venda dá prejuízo, não prometa resultados e não presuma que o parceiro pediu algo. ' +
+    'Se atual.venda_da_prejuizo for 1, ou se a recomendação for não mexer na comissão, não escreva mensagem ao parceiro: ' +
+    'escreva "Sem mensagem ao parceiro por enquanto." e uma frase com o primeiro passo do vendedor.\n' +
     'Regras: escreva como para uma pessoa leiga. NUNCA escreva nomes de campos nem o valor 0 ou 1 de compensa: ' +
     'diga "o cenário compensa" ou "não compensa", "lucro do mês", "unidades necessárias" etc. ' +
     'Quando o lucro do mês for negativo, escreva "prejuízo de X reais" (sem sinal de menos) em vez de "lucro de -X". ' +
-    'Use SOMENTE números dos dados abaixo, não recalcule nada, cite no máximo 3 números, ' +
+    'Use SOMENTE números dos dados abaixo, não recalcule nada, na análise cite no máximo 4 números (a mensagem pronta pode usar os necessários), ' +
     'não invente previsões nem dados de mercado e deixe claro que o aumento de vendas é uma aposta do vendedor.\n\n' + dados;
 
   try {

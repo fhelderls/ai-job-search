@@ -42,7 +42,8 @@ function montar(v) {
 function permitidos(dados, derivados) {
   const s = new Set([1, 2, 30]); // marcadores de lista, "2 perguntas" e "30 dias" (sugestão de prazo do teste, não é dado do cálculo)
   const add = (x) => { if (typeof x === 'number' && isFinite(x)) { s.add(Math.abs(x)); s.add(Math.round(Math.abs(x))); } };
-  Object.values(dados).forEach((g) => (Array.isArray(g) ? g : [g]).forEach((o) => Object.values(o).forEach(add)));
+  const percorre = (x) => { if (x && typeof x === 'object') Object.values(x).forEach(percorre); else add(x); };
+  percorre(dados);
   derivados.forEach(add);
   return [...s];
 }
@@ -75,6 +76,9 @@ for (const [nome, v] of CASOS) {
   const alertas = [];
   if (/cada venda (j[aá] )?d[aá] preju[ií]zo/i.test(texto) && !dados.atual.venda_da_prejuizo && !/nova comiss[aã]o|cen[aá]rio/i.test(texto.match(/[^.]*cada venda (j[aá] )?d[aá] preju[ií]zo[^.]*/i)?.[0] || '')) alertas.push('afirma prejuizo por venda hoje sem base');
   if (texto && !dados.cenario.compensa && !texto.includes(String(dados.cenario.melhor_alternativa_pct).replace('.', ',') + '%')) alertas.push('nao cita a melhor alternativa calculada pela regra (' + dados.cenario.melhor_alternativa_pct + '%)');
+  if (texto && !['Recomendação', 'Risco', 'Teste', 'Mensagem pronta'].every((s) => texto.includes(s + ':'))) alertas.push('faltou alguma das 4 partes');
+  if (texto && dados.cenario.compensa && dados.estrategias.escalonada.valida && !/escalonad|acima d/i.test(texto)) alertas.push('nao recomendou a escalonada, que a regra marcou como valida');
+  if (/preju[ií]zo|lucro|margem/i.test(texto.split('Mensagem pronta:')[1] || '')) alertas.push('mensagem ao parceiro expoe lucro/prejuizo/margem');
   if (/\b[a-z]+_[a-z_]+\b|valor [01]\b/i.test(texto)) alertas.push('vazou nome de campo');
   if (/-\s?\d/.test(texto)) alertas.push('numero com sinal de menos (esperado: "prejuizo de X")');
   resultados.push({ nome, veredito_regra: compensa ? 'compensa' : 'nao compensa', erro, numeros_nao_verificados: fora, veredito_ok: texto ? veredito(texto, compensa) : 'sem texto', alertas, texto });

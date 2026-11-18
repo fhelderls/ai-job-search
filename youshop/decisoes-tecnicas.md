@@ -53,6 +53,12 @@ Por quê: o desafio pede um protótipo funcional em poucos dias. Esse desenho te
 - Se a IA não responder (sem crédito, erro, rede), a página mostra uma mensagem e a leitura por regra continua na tela.
 - Por quê: a decisão do usuário não pode depender de um serviço externo.
 
+**3.10 O valor não está no resumo: a regra compara caminhos e a IA decide e escreve**
+- Feedback que recebi ao testar: um relatório que só resume a conta não justifica usar a ferramenta. Passei a calcular, por regra, três caminhos para a mesma mudança: (1) comissão maior em todas as vendas, (2) comissão maior **só sobre as vendas acima do volume de hoje** (comissão escalonada), (3) comissão maior com **aumento de preço** que mantém a margem por unidade. Calcula também a **comissão máxima** que ainda iguala o lucro de hoje com a aposta do vendedor.
+- A IA escolhe um caminho, avalia o risco, propõe um teste de 30 dias com critério de parada e escreve uma **mensagem pronta** para propor a mudança ao parceiro (afiliado, representante ou marketplace).
+- Por quê: o vendedor sozinho não calcula a escalonada nem a comissão máxima, e a mensagem é um material que ele usa de fato na conversa. A escalonada é o caminho que mais reduz o risco: se as vendas não passarem do volume de hoje, nada muda.
+- A mensagem nunca revela lucro, prejuízo ou margem do negócio ao parceiro (regra no prompt e checagem no script).
+
 ## 4. Como a IA "avalia" (perguntas prováveis)
 
 **"Como a IA chega à conclusão?"**
@@ -109,6 +115,8 @@ Duas camadas, uma do produto e uma da IA. Os limites abaixo são propostas minha
 ## 6. Limitações que devo admitir
 - **Modelo linear:** assume preço, custo e custos fixos constantes ao mudar o volume. Na vida real há degraus de custo.
 - **Sem previsão de demanda:** o aumento de vendas é palpite do usuário.
+- **A comissão escalonada depende de o parceiro aceitar.** O simulador mostra o ganho, mas não sabe se o marketplace ou afiliado oferece esse formato. Preciso confirmar isso nas entrevistas.
+- **O caminho do preço não prevê a reação da demanda.** Ele mostra o preço que mantém a margem, mas não quanto as vendas caem se o preço sobe.
 - **Uma única linha de produto por simulação.** Vendedor com muitos produtos precisa simular um de cada vez.
 - **Limite de uso fraco:** a contagem por IP fica na memória de cada instância da função e pode ser contornada. Em produção usaria um banco ou serviço de limite de taxa.
 - **Sem dados reais de usuários ainda.** A evidência de mercado vem das entrevistas que estou fazendo.
