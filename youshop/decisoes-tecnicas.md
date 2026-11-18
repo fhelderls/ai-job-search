@@ -20,9 +20,9 @@ Por quê: o desafio pede um protótipo funcional em poucos dias. Esse desenho te
 - Crescimento necessário = quanto o volume precisa subir na nova comissão para igualar o lucro de hoje.
 - Por quê: dinheiro exige resultado exato e repetível. Um LLM pode errar conta ou dar respostas diferentes para a mesma entrada. É a mesma regra que usei no PetCore: regras primeiro, IA só onde linguagem natural ajuda.
 
-**3.2 A IA só explica**
-- O modelo recebe os números já calculados e escreve a leitura, a ressalva de que o aumento de vendas é uma aposta e 2 perguntas para decidir.
-- Por quê: o valor da IA aqui é traduzir números em decisão para quem não é de finanças, não calcular.
+**3.2 A IA só explica, mas entrega uma decisão**
+- A regra calcula tudo e envia à IA os números, o veredito (`compensa` 1 ou 0), a melhor alternativa entre as comissões testadas e se cada venda dá prejuízo. A IA escreve três partes: **Recomendação**, **Risco** (e se a aposta de vendas não vier) e **Teste** (como validar em 30 dias ou com parte dos vendedores, com um critério de parada).
+- Por quê: a primeira versão só repetia os números que a tela já mostrava, então não agregava nada. O valor da IA aqui é traduzir números em decisão e em plano de teste para quem não é de finanças, não calcular.
 
 **3.3 A IA não prevê vendas**
 - O aumento de vendas é uma aposta que o vendedor digita. O sistema mostra o mínimo necessário, mas não afirma que vai acontecer.
@@ -36,12 +36,18 @@ Por quê: o desafio pede um protótipo funcional em poucos dias. Esse desenho te
 - A chave fica como variável de ambiente na Vercel, nunca no código nem no navegador.
 - Por quê: chave em página pública é roubada em minutos.
 
-**3.6 Modelo pequeno (Claude Haiku) e limite de resposta**
-- Por quê: a tarefa é curta e estruturada, então um modelo rápido e barato serve. O limite de tokens por resposta e o limite de 8 pedidos por IP a cada 10 minutos controlam o custo.
+**3.6 Modelo: Claude Sonnet (testei o Haiku antes) e limites de custo**
+- Comecei com o Haiku, por ser rápido e barato. Quando o relatório passou a recomendar e comparar opções, o Haiku errou em cada execução algo diferente: comparou números negativos ao contrário, disse que "cada venda dá prejuízo hoje" quando a margem era positiva, contradisse o veredito calculado. Troquei para o Sonnet e, nos mesmos 8 cenários, li todos os textos e não achei erro.
+- Por quê: a tarefa é curta, mas exige seguir várias regras ao mesmo tempo, e o modelo menor não segurou. O custo por relatório continua baixo.
+- O custo é controlado por limite de tokens por resposta e limite de 8 pedidos por IP a cada 10 minutos.
 
 **3.7 Raciocínio interno desligado**
-- Primeira versão: respostas vazias ou cortadas, porque o modelo gastava os tokens "pensando" antes de escrever. Achei pelo log do servidor, desliguei o raciocínio e aumentei o limite.
+- Primeira versão: respostas vazias ou cortadas, porque o modelo gastava os tokens "pensando" antes de escrever. Achei pelo log do servidor, desliguei o raciocínio e aumentei o limite. No Sonnet o parâmetro é outro (`between_tools`), descoberto também pelo log.
 - Por quê: para reformular números prontos, esse raciocínio não ajuda e custa tokens e tempo.
+
+**3.9 Tudo que a IA poderia errar vem pronto da regra**
+- Quando a IA comparava números por conta própria, errava (por exemplo, achava que −2.200 é melhor que −1.800). Por isso a regra passou a enviar já decidido: o veredito, a melhor alternativa, a variação do lucro (positiva = melhora), o volume mínimo e se a venda dá prejuízo.
+- Por quê: o que é conta ou comparação fica na regra, que é exata. A IA só escolhe as palavras e monta a recomendação.
 
 **3.8 Falhar sem quebrar**
 - Se a IA não responder (sem crédito, erro, rede), a página mostra uma mensagem e a leitura por regra continua na tela.
@@ -65,7 +71,15 @@ Resultado da avaliação (18/11/2026):
 - **2ª rodada (depois da correção):** nos 8 cenários os valores citados conferem com a conta feita à mão. O checador marcou 2 casos, e os dois eram alarmes falsos: uma subtração correta feita pela IA (1.200 − 800 = 400) e o filtro de palavras que não entendeu um texto correto.
 - **Também corrigi no site:** quando o cenário melhora o lucro mas o mês continua no prejuízo (cenário 6), o cartão não fica mais verde. Ele diz "Melhora, mas o mês continua no prejuízo".
 
-Limites desta avaliação: são só 8 cenários, escolhidos por mim, e a IA pode variar de uma chamada para outra, então ela não prova que nunca erra. A IA ainda faz contas simples por conta própria, como diferenças entre valores. Por isso o texto fica restrito aos números enviados e o veredito vem da regra.
+**Depois (18/11/2026): o relatório foi reescrito e avaliado de novo.** Ao testar o site, vi que o relatório só repetia o que a tela já mostra. Reescrevi para dar Recomendação, Risco e Teste. A cada rodada de 8 cenários li todos os textos e refiz as contas à mão. O que apareceu:
+- **Vazamento de nomes internos** (`compensa (valor 1)`): proibido no prompt e checado pelo script.
+- **Volume mínimo errado** quando a comissão era menor: eu cortava o crescimento mínimo em zero, e a IA mandava "pare se vender menos de 100" quando o certo era 91. Passei a enviar o valor sem corte.
+- **Comparação de números negativos ao contrário**, mais de uma vez (achar −2.200 melhor que −1.800; dizer que −310 é pior que −500; contradizer o veredito). Passei a enviar o veredito, a melhor alternativa e a variação do lucro já calculados.
+- **"Cada venda já dá prejuízo hoje" dito sem base**, confundindo mês no prejuízo com venda no prejuízo. Passei a enviar esse fato como campo e o script passou a checar.
+- **O Haiku errou algo diferente a cada execução**, mesmo com essas travas. Com o Sonnet, nos 8 cenários o script passou 8 de 8 e eu não achei erro na leitura.
+- O script agora checa automaticamente: números fora dos dados, veredito contra a regra, nome de campo vazado, prejuízo por venda sem base e se o texto cita a melhor alternativa calculada.
+
+Limites desta avaliação: são só 8 cenários, escolhidos por mim, e a IA pode variar de uma chamada para outra. A última rodada passou limpa, mas não prova que nunca erra: o mesmo prompt no modelo menor errou em rodadas seguidas. A leitura humana de cada texto continua sendo parte do método, porque o script não pega todo tipo de erro.
 
 **Avaliação humana ainda pendente:** pedir aos entrevistados que leiam o relatório e digam se entenderam e se faz sentido para o negócio deles.
 

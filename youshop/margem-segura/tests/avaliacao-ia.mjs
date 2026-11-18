@@ -14,8 +14,8 @@ const base = process.argv[2] || 'https://margem-segura-seven.vercel.app';
 const html = readFileSync(join(aqui, '..', 'index.html'), 'utf8');
 const ini = html.indexOf('function num(');
 const fim = html.indexOf('var R=function');
-const { calcular, crescimentoNecessario, cenario } = new Function(
-  html.slice(ini, fim) + '; return {calcular, crescimentoNecessario, cenario};'
+const { calcular, crescimentoNecessario, cenario, montarDados } = new Function(
+  html.slice(ini, fim) + '; return {calcular, crescimentoNecessario, cenario, montarDados};'
 )();
 
 const CASOS = [
@@ -33,20 +33,16 @@ function montar(v) {
   const [preco, custo, frete, comissao, impostos, taxas, fixos, volume, novaComissao, crescimento] = v;
   const p = { preco, custo, frete, comissao, impostos, taxas, fixos, volume, novaComissao, crescimento };
   const a = calcular(p, p.comissao), c = cenario(p, a, p.novaComissao, p.crescimento);
-  const dados = {
-    entradas: p,
-    atual: { margem_un: +a.mc.toFixed(2), margem_pct: +(a.mcPct * 100).toFixed(1), markup_pct: +(a.markup * 100).toFixed(0), equilibrio_un: isFinite(a.equilibrio) ? a.equilibrio : null, lucro_mes: +a.lucro.toFixed(2) },
-    cenario: { nova_comissao_pct: p.novaComissao, crescimento_apostado_pct: p.crescimento, margem_un: +c.novo.mc.toFixed(2), lucro_mes: +c.lucro2.toFixed(2), lucro_mes_sem_crescimento: +(c.novo.mc * p.volume - p.fixos).toFixed(2), variacao_lucro: +c.delta.toFixed(2), crescimento_minimo_pct: isFinite(c.necessario) ? +(Math.max(c.necessario, 0) * 100).toFixed(1) : null },
-  };
+  const dados = montarDados(p, a, c); // mesma função que a página usa para montar o que vai à IA
   const compensa = a.mc > 0 && c.novo.mc > 0 && c.delta >= 0;
   const derivados = [p.volume * (1 + p.crescimento / 100), Math.ceil(p.volume * (1 + Math.max(c.necessario, 0))), p.crescimento / 100];
   return { dados, compensa, derivados };
 }
 
 function permitidos(dados, derivados) {
-  const s = new Set([1, 2]); // marcadores de lista ("1.", "2.") e "2 perguntas"
+  const s = new Set([1, 2, 30]); // marcadores de lista, "2 perguntas" e "30 dias" (sugestão de prazo do teste, não é dado do cálculo)
   const add = (x) => { if (typeof x === 'number' && isFinite(x)) { s.add(Math.abs(x)); s.add(Math.round(Math.abs(x))); } };
-  Object.values(dados).forEach((g) => Object.values(g).forEach(add));
+  Object.values(dados).forEach((g) => (Array.isArray(g) ? g : [g]).forEach((o) => Object.values(o).forEach(add)));
   derivados.forEach(add);
   return [...s];
 }
@@ -75,10 +71,16 @@ for (const [nome, v] of CASOS) {
   } catch (e) { erro = String(e); }
   const perm = permitidos(dados, derivados);
   const fora = texto ? [...new Set(numerosDoTexto(texto).filter((x) => !perm.some((p) => Math.abs(p - x) <= 0.051)))] : [];
-  resultados.push({ nome, veredito_regra: compensa ? 'compensa' : 'nao compensa', erro, numeros_nao_verificados: fora, veredito_ok: texto ? veredito(texto, compensa) : 'sem texto', texto });
-  console.log(`${nome} | regra: ${compensa ? 'compensa' : 'nao compensa'} | numeros fora dos dados: ${fora.length ? fora.join(', ') : 'nenhum'} | veredito: ${resultados.at(-1).veredito_ok}${erro ? ' | ERRO ' + erro : ''}`);
+  // Erros de interpretação que o checador de números não pega.
+  const alertas = [];
+  if (/cada venda (j[aá] )?d[aá] preju[ií]zo/i.test(texto) && !dados.atual.venda_da_prejuizo && !/nova comiss[aã]o|cen[aá]rio/i.test(texto.match(/[^.]*cada venda (j[aá] )?d[aá] preju[ií]zo[^.]*/i)?.[0] || '')) alertas.push('afirma prejuizo por venda hoje sem base');
+  if (texto && !dados.cenario.compensa && !texto.includes(String(dados.cenario.melhor_alternativa_pct).replace('.', ',') + '%')) alertas.push('nao cita a melhor alternativa calculada pela regra (' + dados.cenario.melhor_alternativa_pct + '%)');
+  if (/\b[a-z]+_[a-z_]+\b|valor [01]\b/i.test(texto)) alertas.push('vazou nome de campo');
+  if (/-\s?\d/.test(texto)) alertas.push('numero com sinal de menos (esperado: "prejuizo de X")');
+  resultados.push({ nome, veredito_regra: compensa ? 'compensa' : 'nao compensa', erro, numeros_nao_verificados: fora, veredito_ok: texto ? veredito(texto, compensa) : 'sem texto', alertas, texto });
+  console.log(`${nome} | regra: ${compensa ? 'compensa' : 'nao compensa'} | numeros fora dos dados: ${fora.length ? fora.join(', ') : 'nenhum'} | veredito: ${resultados.at(-1).veredito_ok} | alertas: ${alertas.length ? alertas.join('; ') : 'nenhum'}${erro ? ' | ERRO ' + erro : ''}`);
   await pausa(1200);
 }
 writeFileSync(join(aqui, 'resultados.json'), JSON.stringify(resultados, null, 2));
-const ok = resultados.filter((r) => !r.erro && !r.numeros_nao_verificados.length && r.veredito_ok === 'ok').length;
+const ok = resultados.filter((r) => !r.erro && !r.numeros_nao_verificados.length && r.veredito_ok === 'ok' && !r.alertas.length).length;
 console.log(`\nSem problema automático: ${ok} de ${resultados.length}. Casos marcados devem ser lidos à mão (resultados.json).`);

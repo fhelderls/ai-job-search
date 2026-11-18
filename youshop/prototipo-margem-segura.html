@@ -15,14 +15,14 @@
   h1{font-size:1.5rem;line-height:1.2;margin:0}
   .tag0{color:var(--mut);margin:2px 0 0;font-size:.95rem}
   .layout{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:20px;align-items:start}
-  @media (max-width:900px){.layout{grid-template-columns:1fr}}
+  @media (max-width:1100px){.layout{grid-template-columns:minmax(0,1fr)}}
   .side{position:sticky;top:16px}
-  @media (max-width:900px){.side{position:static}}
+  @media (max-width:1100px){.side{position:static}}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
   .card h2{font-size:1rem;margin:0 0 14px;display:flex;align-items:center;gap:8px}
   .step{width:24px;height:24px;border-radius:50%;background:var(--acc);color:#fff;font-size:.8rem;display:grid;place-items:center;flex:none}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  @media (max-width:420px){.grid{grid-template-columns:1fr}}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+  @media (max-width:420px){.grid{grid-template-columns:minmax(0,1fr)}}
   label{display:block;font-size:.8rem;font-weight:600;color:var(--mut);margin-bottom:5px}
   .in{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;background:var(--bg);overflow:hidden}
   .in:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 22%,transparent)}
@@ -198,6 +198,23 @@ function cenario(p,atual,novaComissao,cresc){
   return {novo:n,vol2:vol2,lucro2:lucro2,delta:lucro2-atual.lucro,necessario:crescimentoNecessario(p,atual,n)};
 }
 
+// Dados enviados à IA: tudo calculado aqui, a IA não recalcula nada.
+function montarDados(p,a,c){
+  var nec=c.necessario; // pode ser negativo: comissão menor permite vender menos e manter o lucro
+  var opcoes=[-4,-2,0,2,4,6,8].map(function(d){return p.comissao+d}).filter(function(x){return x>=0}).map(function(cm){
+    var n=calcular(p,cm), k=crescimentoNecessario(p,a,n);
+    return {comissao_pct:cm,margem_un:+n.mc.toFixed(2),equilibrio_un:isFinite(n.equilibrio)?n.equilibrio:null,
+      crescimento_minimo_pct:isFinite(k)?+(k*100).toFixed(1):null,lucro_mes_sem_crescimento:+(n.mc*p.volume-p.fixos).toFixed(2)};
+  });
+  var melhor=opcoes.reduce(function(m,o){return o.lucro_mes_sem_crescimento>m.lucro_mes_sem_crescimento?o:m},opcoes[0]); // maior lucro sem depender de crescimento
+  return {entradas:p,
+    atual:{margem_un:+a.mc.toFixed(2),margem_pct:+(a.mcPct*100).toFixed(1),markup_pct:+(a.markup*100).toFixed(0),equilibrio_un:isFinite(a.equilibrio)?a.equilibrio:null,lucro_mes:+a.lucro.toFixed(2),queda_maxima_vendas_pct:a.folga>0?+(a.folga*100).toFixed(0):0,venda_da_prejuizo:a.mc<=0?1:0},
+    cenario:{nova_comissao_pct:p.novaComissao,crescimento_apostado_pct:p.crescimento,volume_apostado_un:Math.round(c.vol2),volume_necessario_un:isFinite(c.necessario)?Math.ceil(p.volume*(1+nec)):null,margem_un:+c.novo.mc.toFixed(2),lucro_mes:+c.lucro2.toFixed(2),lucro_mes_sem_crescimento:+(c.novo.mc*p.volume-p.fixos).toFixed(2),variacao_lucro:+c.delta.toFixed(2),crescimento_minimo_pct:isFinite(c.necessario)?+(nec*100).toFixed(1):null,
+      melhor_alternativa_pct:melhor.comissao_pct,lucro_melhor_alternativa:melhor.lucro_mes_sem_crescimento,
+      venda_da_prejuizo:c.novo.mc<=0?1:0,compensa:(a.mc>0&&c.novo.mc>0&&c.delta>=0)?1:0},
+    opcoes:opcoes};
+}
+
 var R=function(v){return isFinite(v)?v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'inviável'};
 var P=function(v,d){return isFinite(v)?(v*100).toLocaleString('pt-BR',{minimumFractionDigits:d||0,maximumFractionDigits:d||0})+'%':'inviável'};
 var $=function(id){return document.getElementById(id)};
@@ -286,9 +303,7 @@ function atualizar(){
     '<div class="kpi"><b>'+(isFinite(a.equilibrio)?a.equilibrio+' un.':'inviável')+'</b><span>Ponto de equilíbrio por mês</span></div>'+
     '<div class="kpi"><b>'+R(a.lucro)+'</b><span>Lucro do mês hoje</span></div>';
   veredito(p,a,c); medidor(p,a,c); leitura(p,a,c); grafico(p,a,c); tabela(p,a);
-  window.ultimoDados={entradas:p,
-    atual:{margem_un:+a.mc.toFixed(2),margem_pct:+(a.mcPct*100).toFixed(1),markup_pct:+(a.markup*100).toFixed(0),equilibrio_un:isFinite(a.equilibrio)?a.equilibrio:null,lucro_mes:+a.lucro.toFixed(2)},
-    cenario:{nova_comissao_pct:p.novaComissao,crescimento_apostado_pct:p.crescimento,margem_un:+c.novo.mc.toFixed(2),lucro_mes:+c.lucro2.toFixed(2),lucro_mes_sem_crescimento:+(c.novo.mc*p.volume-p.fixos).toFixed(2),variacao_lucro:+c.delta.toFixed(2),crescimento_minimo_pct:isFinite(c.necessario)?+(Math.max(c.necessario,0)*100).toFixed(1):null}};
+  window.ultimoDados=montarDados(p,a,c);
 }
 document.querySelectorAll('input').forEach(function(i){i.addEventListener('input',atualizar)});
 
@@ -297,7 +312,7 @@ $('gerarIA').addEventListener('click',function(){
   out.innerHTML='<div class="sk" style="width:90%"></div><div class="sk" style="width:75%"></div><div class="sk" style="width:82%"></div>';
   btn.disabled=true;
   fetch('/api/relatorio',{method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({entradas:d.entradas,atual:d.atual,cenario:d.cenario})})
+    body:JSON.stringify({entradas:d.entradas,atual:d.atual,cenario:d.cenario,opcoes:d.opcoes})})
   .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})})
   .then(function(x){
     out.textContent='';

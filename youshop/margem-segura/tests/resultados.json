@@ -5,7 +5,8 @@
     "erro": null,
     "numeros_nao_verificados": [],
     "veredito_ok": "ok",
-    "texto": "Resumo em linguagem simples:\n\nHoje, cada venda deixa cerca de R$ 38 de margem, e com 100 vendas por mês o lucro é de R$ 800. Com a comissão subindo de 12% para 16%, a margem cai para R$ 34 por venda. Se as vendas continuarem em 100 por mês, o lucro cai para R$ 400. Para o lucro subir para R$ 1.080, as vendas precisariam crescer 20%, o que é uma aposta sua e não uma garantia. O crescimento mínimo para compensar a mudança é de 11,8%. Ou seja, a mudança só vale a pena se você tiver segurança de que as vendas aumentarão pelo menos isso.\n\nDuas perguntas para se fazer antes de decidir:\n1. Tenho motivos concretos (anúncio, posição no marketplace, demanda) para acreditar que as vendas sobem pelo menos 11,8%, e não apenas esperança?\n2. Se as vendas não crescerem, consigo arcar com o lucro de R$ 400 por mês, ou com a queda de R$ 400 em relação aos R$ 800 atuais?"
+    "alertas": [],
+    "texto": "Recomendação: o cenário compensa, mas só se as vendas chegarem a pelo menos 112 unidades por mês. O aumento para 120 unidades é uma aposta sua, ainda não é um fato. Suba a comissão para 16% apenas com cuidado, como um teste.\n\nRisco: se a aposta de vendas não vier, o lucro do mês cai de 800 reais hoje para 400 reais. Ou seja, você perde dinheiro se as vendas ficarem onde estão.\n\nTeste: aplique a nova comissão por 30 dias, ou só com parte dos vendedores. Se nesse período você vender pelo menos 112 unidades no mês, mantenha. Se ficar abaixo disso, volte para a comissão de 12%."
   },
   {
     "nome": "2 lucro cai (aposta baixa)",
@@ -13,7 +14,8 @@
     "erro": null,
     "numeros_nao_verificados": [],
     "veredito_ok": "ok",
-    "texto": "Resumo para você: hoje, vendendo 100 unidades, o lucro mensal é de R$ 800. Se a comissão subir de 12% para 20%, sua margem por unidade cai de R$ 38 para R$ 30. Mesmo com 5% a mais de vendas, o lucro cai para R$ 150, ou seja, R$ 650 a menos por mês. Sem nenhum crescimento, o lucro seria R$ 0, pois as vendas iguais não cobrem os custos fixos nessa condição. Para compensar a mudança, seria preciso crescer pelo menos 26,7% nas vendas. Portanto, a mudança de comissão não compensa com o crescimento previsto. O aumento de vendas é uma aposta sua, não uma garantia, e não há base nestes números para afirmar que ele acontecerá.\n\nPerguntas que você deve se fazer antes de decidir:\n1. Tenho dados concretos que sustentem um crescimento de pelo menos 26,7% nas vendas, ou estou apenas torcendo por isso?\n2. Existe outra forma de vender ou de reduzir custos (frete, impostos, taxas, fixos) que melhore a margem sem aceitar a comissão de 20%?"
+    "alertas": [],
+    "texto": "Recomendação: Não vale adotar a comissão de 20%, porque o cenário não compensa: mesmo com a venda extra que você apostou, o lucro do mês fica abaixo do atual. A melhor alternativa é reduzir a comissão para 8%, que leva o lucro do mês a 1200 reais sem depender de vender mais.\n\nRisco: o aumento de vendas é só uma aposta sua. Se ele não vier, o lucro do mês cai de 800 reais para zero, e mesmo se vier, o lucro fica abaixo do de hoje. Para compensar, você precisaria vender 127 unidades por mês, bem mais do que apostou.\n\nTeste: aplique a comissão de 8% por 30 dias, ou só com parte dos vendedores, antes de fixá-la. Se o lucro real do mês ficar abaixo de 800 reais, volte para a comissão de hoje."
   },
   {
     "nome": "3 venda abaixo do custo",
@@ -21,7 +23,8 @@
     "erro": null,
     "numeros_nao_verificados": [],
     "veredito_ok": "ok",
-    "texto": "Resumo do resultado:\n\nHoje, cada venda deixa 8 reais de margem e você perde 2.200 reais por mês, pois ainda não cobre os custos fixos (o ponto de equilíbrio seria 375 unidades). Com a comissão subindo para 25%, cada venda passaria a dar prejuízo de 5 reais, e o lucro mensal cairia para -3.750 reais, uma piora de 1.550 reais. Mesmo com o volume de vendas mantido, o prejuízo seria de -3.500 reais, então o cenário não compensa. O cálculo com crescimento de 50% é apenas uma aposta sua, não uma previsão: ele não foi suficiente para reverter o prejuízo, e não há um crescimento mínimo que torne o cenário viável com os números informados.\n\nPerguntas para se fazer antes de decidir:\n1. Tenho dados reais que justifiquem a chance de vender 50% mais com uma comissão de 25%, ou estou contando com um resultado que não tem base?\n2. Existe outra forma de reduzir custos ou subir o preço antes de aceitar uma comissão que já me deixa no prejuízo?"
+    "alertas": [],
+    "texto": "Recomendação: Não adote a comissão de 25%, o cenário não compensa: ela faria cada venda dar prejuízo, e vender mais só aumentaria a perda. A melhor alternativa é reduzir a comissão para 8%, que leva o lucro do mês a um prejuízo de 1800 reais sem depender de vendas maiores. Hoje o prejuízo do mês é de 2200 reais por causa dos custos fixos, mas cada venda ainda contribui.\n\nRisco: o aumento de 50% nas vendas é só uma aposta sua. Mesmo que ele venha, o prejuízo do mês chegaria a 3750 reais, pior que os 2200 de hoje. Se a aposta não vier, o prejuízo seria de 3500 reais.\n\nTeste: antes de qualquer mudança definitiva, aplique a comissão de 8% por 30 dias, ou só com parte dos vendedores. O critério de parada é simples: se o lucro real do mês ficar abaixo do lucro de hoje, volte atrás."
   },
   {
     "nome": "4 margem atual ja negativa",
@@ -29,25 +32,26 @@
     "erro": null,
     "numeros_nao_verificados": [],
     "veredito_ok": "ok",
-    "texto": "Pelos números informados, a situação atual já dá prejuízo: com preço de R$ 100, o produto perde R$ 17 por unidade e o lucro mensal fica em -R$ 3.700. Não há ponto de equilíbrio, porque a margem por unidade é negativa e o volume de vendas nunca cobre os custos fixos.\n\nNo cenário com comissão de 14%, a margem cai para -R$ 19 por unidade e o prejuízo sobe para -R$ 4.090 por mês. Sem o crescimento de vendas, o prejuízo seria de -R$ 3.900, uma piora de R$ 390 por mês. Portanto, a mudança não compensa: ela aumenta a perda, e o crescimento de 10% seria apenas uma aposta sua de que vender mais resolveria o problema, o que os números não garantem.\n\nAntes de decidir, pergunte-se:\n1. Consigo reduzir o custo do produto, o frete ou os custos fixos o suficiente para que a margem por unidade fique positiva?\n2. Se eu vender mais, a margem por unidade vai melhorar ou continuar negativa? Vender mais sem mudar os custos pode apenas aumentar o prejuízo."
+    "alertas": [],
+    "texto": "Recomendação: Hoje cada venda já dá prejuízo, então o primeiro passo é rever preço ou custo, antes de mexer na comissão. Subir a comissão para 14% não compensa e faria cada venda dar prejuízo ainda maior; não adote. A melhor alternativa é reduzir a comissão para 8%, que leva o prejuízo do mês a 3300 reais, sem depender de vender mais.\n\nRisco: O aumento de vendas de 10% é só uma aposta sua. Mesmo que ele venha, o prejuízo do mês fica em 4090 reais, pior que o de hoje (3700 reais). Se a aposta não vier, o prejuízo é de 3900 reais.\n\nTeste: Antes de qualquer mudança, ajuste preço ou custo para cada venda deixar de dar prejuízo. Se quiser testar a redução para 8%, aplique por 30 dias ou só com parte dos vendedores. Critério de parada: se o lucro real do mês ficar abaixo do lucro de hoje, volte atrás."
   },
   {
     "nome": "5 comissao menor",
     "veredito_regra": "compensa",
     "erro": null,
-    "numeros_nao_verificados": [
-      400
-    ],
+    "numeros_nao_verificados": [],
     "veredito_ok": "ok",
-    "texto": "Hoje, com comissão de 12%, você lucra R$ 800 por mês, vendendo 100 unidades, e precisa vender 79 para cobrir os custos fixos. Com a comissão caindo para 8%, mantendo as mesmas 100 vendas, seu lucro seria de R$ 1.200 por mês. Isso já é uma melhora de R$ 400 sem depender de nada novo. Se você também crescer 5% nas vendas, o lucro chega a R$ 1.410, uma variação de R$ 610 em relação ao cenário atual. Porém, esse aumento de vendas é uma aposta sua, não uma garantia. Como a comissão mais baixa já melhora o resultado sem crescimento, a mudança compensa mesmo que as vendas não subam. Ainda assim, vale acompanhar se a redução de comissão não afeta sua visibilidade ou o volume de pedidos.\n\nAntes de decidir, pergunte-se:\n1. Se eu mantiver o volume atual, o lucro de R$ 1.200 me satisfaz e cobre minhas necessidades?\n2. Qual é o risco de a mudança de comissão reduzir minhas vendas, e até onde eu aguentaria essa queda?"
+    "alertas": [],
+    "texto": "Recomendação: o cenário compensa, mas só vale se as vendas chegarem a pelo menos 91 unidades por mês. Como a comissão nova é menor, você pode até vender um pouco menos do que hoje e manter o lucro. O aumento de vendas é uma aposta sua, então teste a redução para 8% com cuidado, sem tratá-la como certa.\n\nRisco: se as vendas não crescerem, o lucro do mês ainda fica em 1200 reais, acima dos 800 reais de hoje, porque cada venda passa a render mais. O risco real aparece só se as vendas caírem abaixo do mínimo de 91 unidades.\n\nTeste: aplique os 8% por 30 dias, ou só com parte dos vendedores, e acompanhe as vendas. Se em algum mês você vender menos de 91 unidades, pare e volte para a comissão anterior."
   },
   {
     "nome": "6 margem baixa (<15%)",
     "veredito_regra": "compensa",
     "erro": null,
     "numeros_nao_verificados": [],
-    "veredito_ok": "revisar",
-    "texto": "Resumo para o vendedor:\n\nHoje você tem prejuízo de R$ 500 por mês. Com a nova comissão de 12%, sem vender mais, o prejuízo subiria para R$ 700 por mês. Só com um crescimento de vendas de 30% (que é uma aposta sua, não uma garantia) o prejuízo cairia para R$ 310 por mês, uma melhora de R$ 190. Para apenas não piorar a situação atual, você precisaria crescer pelo menos 15,4%. Portanto, a mudança não compensa sem crescimento de vendas, e só faz sentido se você tiver confiança real de que as vendas vão subir acima desse patamar.\n\nAntes de decidir, pergunte-se:\n1. Tenho dados concretos ou uma estratégia real que sustentem um crescimento de vendas de pelo menos 15% a 30%, e não apenas esperança?\n2. Existe outra forma de reduzir custos fixos ou custo do produto, ou de ajustar o preço, que melhore o resultado sem depender de vender mais?"
+    "veredito_ok": "ok",
+    "alertas": [],
+    "texto": "Recomendação: o cenário compensa, mas só se as vendas chegarem a pelo menos 116 unidades por mês. O aumento de 30% nas vendas é uma aposta sua, não algo garantido. Suba a comissão para 12% apenas como teste, com cuidado. Hoje cada venda ainda contribui, então o problema do prejuízo mensal vem dos custos fixos.\nRisco: se as vendas não crescerem, o prejuízo do mês passa de 500 reais para 700 reais. Mesmo com a aposta se confirmando, o mês ainda fecha no prejuízo de 310 reais, só que menor que o de hoje.\nTeste: aplique os 12% por 30 dias ou só com parte dos vendedores. Continue somente se vender pelo menos 116 unidades por mês. Se ficar abaixo disso, volte para os 10%."
   },
   {
     "nome": "7 loja pequena",
@@ -55,7 +59,8 @@
     "erro": null,
     "numeros_nao_verificados": [],
     "veredito_ok": "ok",
-    "texto": "Resumo: hoje você tem prejuízo de R$ 160 por mês, e o ponto de equilíbrio está em 50 vendas, mas você vende 40. Se a comissão subir de 15% para 18%, sua margem cai de R$ 16 para R$ 14,50 por unidade. Mantendo as mesmas 40 vendas, o prejuízo iria a R$ 220 por mês. Para o prejuízo ficar em R$ 162 (uma piora de R$ 2), as vendas precisam crescer pelo menos 10,3%; o cenário assume 10%, o que ainda deixa o resultado um pouco pior que hoje. Portanto, a mudança de comissão não compensa com o crescimento de 10% assumido. O aumento de vendas é uma aposta sua, não uma garantia.\n\nPerguntas para se fazer antes de decidir:\n1. Tenho motivos concretos (canal, demanda, campanha) para acreditar que minhas vendas vão crescer pelo menos 10,3%, e não apenas torcer por isso?\n2. Existe outra forma de melhorar o resultado, como reduzir custos fixos ou o frete, antes de aceitar uma comissão maior?"
+    "alertas": [],
+    "texto": "Recomendação: não adote a comissão de 18%, porque o cenário não compensa: mesmo com a aposta de vender mais, o lucro do mês piora um pouco em relação a hoje. A melhor alternativa é reduzir a comissão para 11%, que deixa o prejuízo do mês em 80 reais sem depender de nenhum aumento de vendas. Cada venda ainda contribui hoje, o prejuízo vem dos custos fixos.\n\nRisco: se o aumento de vendas, que é apenas uma aposta sua, não vier, o prejuízo do mês com 18% seria de 220 reais, contra 160 reais de prejuízo hoje. Ou seja, você perde dinheiro nos dois casos: se a aposta der certo e se ela falhar.\n\nTeste: se quiser validar a redução para 11%, aplique por 30 dias, talvez só com parte dos vendedores. O critério de parada é simples: se o lucro real do mês ficar abaixo do lucro de hoje, volte para a comissão atual."
   },
   {
     "nome": "8 aposta zero",
@@ -63,6 +68,7 @@
     "erro": null,
     "numeros_nao_verificados": [],
     "veredito_ok": "ok",
-    "texto": "Resultado: hoje você lucra R$ 420 por mês. Com a comissão subindo de 10% para 14%, o lucro cai para R$ 228, ou seja, R$ 192 a menos por mês, mantendo as mesmas 60 vendas. Por isso, na situação descrita, a mudança não compensa: ela só se paga se o volume crescer pelo menos 11,1%, e o cenário considerado não assume nenhum crescimento. Qualquer aumento de vendas é uma aposta sua, não uma garantia; se as vendas não subirem, você perde R$ 192 por mês. Antes de decidir, pergunte-se: 1) Tenho dados concretos ou motivos reais para acreditar que vou vender pelo menos 11% a mais com essa comissão maior? 2) Existe outra forma de aumentar a visibilidade ou o volume sem abrir mão de R$ 192 mensais de lucro?"
+    "alertas": [],
+    "texto": "Recomendação: não adote a comissão de 14%, porque o cenário não compensa: com ela o lucro do mês piora em relação ao de hoje. A melhor alternativa é reduzir a comissão para 6%, que já dá lucro de 612 reais no mês sem depender de vender mais.\n\nRisco: a comissão de 14% só se sustentaria se as vendas chegassem a 67 unidades por mês, e esse aumento é apenas uma aposta sua. Se ele não vier, o lucro do mês cai dos 420 reais de hoje para 228 reais.\n\nTeste: se quiser conferir na prática, aplique a nova comissão por 30 dias, ou só para parte dos vendedores, sem apostar tudo. Pare e volte atrás se o lucro real do mês ficar abaixo dos 420 reais de hoje."
   }
 ]
