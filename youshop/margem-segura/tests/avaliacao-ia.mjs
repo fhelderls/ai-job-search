@@ -68,7 +68,12 @@ function veredito(texto, compensa) {
 
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 const resultados = [];
+// SO_CASOS=9,10 roda só esses cenários e junta o resultado ao resultados.json existente.
+// ESPERAR_S=600 espera antes de começar (a API limita 8 pedidos por IP a cada 10 minutos).
+const SO = process.env.SO_CASOS ? process.env.SO_CASOS.split(',') : null;
+if (process.env.ESPERAR_S) await pausa(Number(process.env.ESPERAR_S) * 1000);
 for (const [nome, v, catTexto] of CASOS) {
+  if (SO && !SO.includes(nome.split(' ')[0])) continue;
   const { dados, compensa, derivados, plano } = montar(v, catTexto);
   let texto = '', erro = null;
   if (process.env.USAR_PLANO) {
@@ -98,6 +103,14 @@ for (const [nome, v, catTexto] of CASOS) {
   resultados.push({ nome, veredito_regra: compensa ? 'compensa' : 'nao compensa', erro, numeros_nao_verificados: fora, veredito_ok: texto ? veredito(texto, compensa) : 'sem texto', alertas, texto });
   console.log(`${nome} | regra: ${compensa ? 'compensa' : 'nao compensa'} | numeros fora dos dados: ${fora.length ? fora.join(', ') : 'nenhum'} | veredito: ${resultados.at(-1).veredito_ok} | alertas: ${alertas.length ? alertas.join('; ') : 'nenhum'}${erro ? ' | ERRO ' + erro : ''}`);
   await pausa(1200);
+}
+if (SO) {
+  let antigos = [];
+  try { antigos = JSON.parse(readFileSync(join(aqui, 'resultados.json'), 'utf8')); } catch {}
+  const novos = new Map(resultados.map((r) => [r.nome, r]));
+  const juntos = antigos.map((r) => novos.get(r.nome) || r);
+  resultados.forEach((r) => { if (!antigos.some((a) => a.nome === r.nome)) juntos.push(r); });
+  resultados.length = 0; resultados.push(...juntos);
 }
 writeFileSync(join(aqui, 'resultados.json'), JSON.stringify(resultados, null, 2));
 const ok = resultados.filter((r) => !r.erro && !r.numeros_nao_verificados.length && r.veredito_ok === 'ok' && !r.alertas.length).length;
